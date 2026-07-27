@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import PublicHeader from '@/components/PublicHeader';
 import styles from './submit.module.css';
-
+import { FAQ_ITEMS } from '@/lib/faqData';
 import { paymentConfig as fallbackConfig } from '@/lib/paymentConfig';
 
 const STEPS = ['Thông tin cá nhân', 'Giấy tờ đính kèm', 'Hình thức nhận KQ', 'Thanh toán lệ phí', 'Xác nhận & Gửi'];
@@ -371,6 +371,36 @@ export default function SubmitPage() {
                 {loading ? <><span className="spinner" /> Đang gửi...</> : <><i className="fa-solid fa-paper-plane" /> Gửi hồ sơ đăng ký</>}
               </button>
             )}
+          </div>
+        </div>
+
+        {/* Section: 11 Câu hỏi thường gặp */}
+        <div className="card" style={{ maxWidth: 700, margin: '0 auto 60px', width: '100%' }}>
+          <div className="card-header" style={{ background: '#f8fafc' }}>
+            <h3 style={{ fontSize: 16, display: 'flex', alignItems: 'center', gap: 10, color: 'var(--primary)' }}>
+              <i className="fa-solid fa-circle-question" />
+              Câu hỏi thường gặp về cấp Giấy chứng nhận tiêm chủng
+            </h3>
+            <span className="badge badge-pending">11 câu hỏi</span>
+          </div>
+          <div className="card-body" style={{ padding: '16px 20px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {FAQ_ITEMS.map((item, idx) => (
+                <details key={item.id} style={{
+                  background: '#f8fafc',
+                  borderRadius: 10,
+                  border: '1px solid var(--border)',
+                  padding: '12px 16px',
+                }}>
+                  <summary style={{ fontWeight: 600, color: 'var(--gray-800)', fontSize: 14, outline: 'none', cursor: 'pointer' }}>
+                    <span style={{ color: 'var(--primary)', marginRight: 6 }}>{idx + 1}.</span> {item.q}
+                  </summary>
+                  <p style={{ marginTop: 10, fontSize: 13.5, color: 'var(--text-secondary)', lineHeight: 1.6, borderTop: '1px dashed var(--border)', paddingTop: 10 }}>
+                    {item.a}
+                  </p>
+                </details>
+              ))}
+            </div>
           </div>
         </div>
       </div>
