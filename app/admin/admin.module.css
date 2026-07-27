@@ -1,0 +1,259 @@
+.loginPage {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #0f172a 100%);
+  padding: 24px;
+  position: relative;
+  overflow: hidden;
+}
+
+.loginPage::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 20% 30%, rgba(37, 99, 235, 0.2) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 70%, rgba(99, 102, 241, 0.15) 0%, transparent 50%);
+}
+
+.loginCard {
+  position: relative;
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 24px;
+  padding: 48px 44px;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 32px 64px rgba(0, 0, 0, 0.4);
+}
+
+.loginLogo {
+  text-align: center;
+  margin-bottom: 36px;
+}
+
+.logoBadge {
+  width: 72px;
+  height: 72px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #0263e0, #6366f1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+  color: white;
+  margin: 0 auto 18px;
+  box-shadow: 0 12px 32px rgba(2, 99, 224, 0.4);
+}
+
+.loginLogo h1 {
+  font-size: 22px;
+  color: white;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.loginLogo p {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.55);
+  font-weight: 500;
+}
+
+.loginForm {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.loginForm .form-label { color: rgba(255,255,255,0.75); }
+
+.loginForm .form-control {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: white;
+}
+
+.loginForm .form-control:focus {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(2, 99, 224, 0.8);
+  box-shadow: 0 0 0 3px rgba(2, 99, 224, 0.25);
+  color: white;
+}
+
+.loginForm .form-control::placeholder { color: rgba(255,255,255,0.3); }
+
+.loginFooter {
+  margin-top: 28px;
+  text-align: center;
+}
+
+/* Admin Layout */
+.adminLayout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--gray-100);
+}
+
+.adminNav {
+  background: var(--gray-900);
+  color: white;
+  padding: 0 28px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+}
+
+.adminNavLogo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 16px;
+  font-weight: 700;
+  color: white;
+  text-decoration: none;
+}
+
+.adminNavUser {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  color: rgba(255,255,255,0.7);
+}
+
+.adminContent {
+  padding: 28px;
+  max-width: var(--admin-max);
+  margin: 0 auto;
+  width: 100%;
+  flex: 1;
+}
+
+/* Stats Cards */
+.statsRow {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 18px;
+  margin-bottom: 24px;
+}
+
+.statCard {
+  background: white;
+  border-radius: 12px;
+  padding: 20px 22px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  transition: var(--transition);
+}
+.statCard:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+.statCard .label { font-size: 12px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; margin-bottom: 8px; }
+.statCard .value { font-size: 36px; font-weight: 800; color: var(--gray-900); line-height: 1; }
+.statCard .trend { font-size: 12px; color: var(--text-muted); margin-top: 6px; }
+.statCard.blue .value { color: var(--primary); }
+.statCard.green .value { color: var(--success); }
+.statCard.amber .value { color: var(--warning); }
+.statCard.purple .value { color: var(--info); }
+
+/* Charts Panel */
+.chartsPanel {
+  background: white;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  padding: 22px;
+  margin-bottom: 24px;
+}
+
+.chartPanelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.chartPanelHeader h3 { font-size: 16px; display: flex; align-items: center; gap: 8px; }
+
+.chartsGrid {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 20px;
+  height: 240px;
+}
+
+.chartBox {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.chartBox .chartTitle { font-size: 13px; font-weight: 600; color: var(--gray-800); text-transform: uppercase; text-align: center; margin-bottom: 12px; }
+.chartBox canvas { flex: 1; min-height: 0; min-width: 0; }
+
+/* Table Toolbar */
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.toolbarTitle { font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 8px; flex: 1; min-width: 200px; }
+.toolbarActions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; flex: 2; justify-content: flex-end; }
+
+.searchInput {
+  padding: 8px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 14px;
+  outline: none;
+  width: 100%;
+  max-width: 240px;
+  transition: var(--transition-fast);
+}
+.searchInput:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-glow); }
+
+/* Table Container */
+.tableWrap {
+  background: white;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+@media (max-width: 1024px) {
+  .statsRow { grid-template-columns: repeat(2, 1fr); }
+  .chartsGrid { grid-template-columns: 1fr; height: auto; gap: 24px; }
+  .chartBox { height: 260px; }
+}
+
+@media (max-width: 768px) {
+  .toolbarActions { justify-content: flex-start; width: 100%; }
+  .toolbarActions select, .toolbarActions input { max-width: 100%; flex: 1; }
+  .chartPanelHeader { flex-direction: column; align-items: flex-start; gap: 12px; }
+  .chartPanelHeader div { width: 100%; justify-content: space-between; }
+}
+
+@media (max-width: 640px) {
+  .statsRow { grid-template-columns: 1fr 1fr; gap: 12px; }
+  .adminContent { padding: 16px; }
+  .adminNav { padding: 0 16px; }
+  
+  /* Responsive Table */
+  .tableWrap { border: none; box-shadow: none; background: transparent; overflow-x: auto; }
+  .data-table { min-width: 600px; background: white; border-radius: 8px; }
+}
