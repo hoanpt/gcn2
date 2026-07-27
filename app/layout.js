@@ -4,12 +4,18 @@ export const metadata = {
   title: 'Cổng Dịch Vụ Công — CDC Đà Nẵng',
   description: 'Hệ thống tiếp nhận và cấp Giấy Chứng Nhận Tiêm Chủng — Trung tâm Kiểm soát Bệnh tật TP. Đà Nẵng',
   keywords: 'CDC Đà Nẵng, tiêm chủng, chứng nhận, hồ sơ trực tuyến',
+  icons: {
+    icon: '/brand/logo.png',
+    shortcut: '/brand/logo.png',
+    apple: '/brand/logo.png',
+  },
 };
 
 export default function RootLayout({ children }) {
   return (
     <html lang="vi">
       <head>
+        <link rel="icon" href="/brand/logo.png" type="image/png" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
