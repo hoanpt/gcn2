@@ -101,14 +101,14 @@ export default function HomePage() {
           <i className="fa-solid fa-headset" style={{ fontSize: 24, color: 'var(--primary)' }} />
           <div>
             <strong>Cần hỗ trợ?</strong>
-            <span>Liên hệ CDC Đà Nẵng: <a href="tel:1900988975">1900 988 975</a> — Địa chỉ: 118 Lê Đình Lý, Thanh Khê, Đà Nẵng</span>
+            <span>Liên hệ CDC Đà Nẵng: <a href="tel:02363890412">0236.3890412</a> — Địa chỉ: 118 Lê Đình Lý, Thanh Khê, Đà Nẵng</span>
           </div>
         </div>
       </main>
 
       <footer className="pub-footer">
         <p><strong>Trung tâm Kiểm soát Bệnh tật TP. Đà Nẵng (CDC Đà Nẵng)</strong></p>
-        <p>118 Lê Đình Lý, Quận Thanh Khê, TP. Đà Nẵng &nbsp;|&nbsp; ĐT: 1900 988 975</p>
+        <p>118 Lê Đình Lý, Quận Thanh Khê, TP. Đà Nẵng &nbsp;|&nbsp; ĐT: 0236.3890412</p>
         <p style={{ marginTop: 8, opacity: 0.6 }}>© 2026 CDC Đà Nẵng. Hệ thống tiếp nhận hồ sơ trực tuyến.</p>
       </footer>
     </div>

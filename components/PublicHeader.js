@@ -10,14 +10,13 @@ export default function PublicHeader() {
     <header className="pub-header">
       <div className="pub-header-inner">
         <Link href="/" className="pub-logo">
-          {/* Placeholder: thay bằng file logo thực sau */}
-          <div style={{
-            width: 44, height: 44,
-            background: 'linear-gradient(135deg, #0263e0, #1e40af)',
-            borderRadius: 10,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: 'white', fontSize: 20, fontWeight: 800, flexShrink: 0,
-          }}>C</div>
+          <Image
+            src="/brand/logo.png"
+            width={44}
+            height={44}
+            alt="CDC Đà Nẵng Logo"
+            style={{ objectFit: 'contain', flexShrink: 0 }}
+          />
           <div className="pub-logo-text">
             <h1>CDC Đà Nẵng</h1>
             <p>Phòng bệnh chủ động, vươn rộng tương lai</p>
