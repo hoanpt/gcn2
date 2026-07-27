@@ -54,6 +54,14 @@ export default function SubmitPage() {
       if (!files.file_cccd) return 'Vui lòng đính kèm file CCCD/Hộ chiếu';
       if (!files.file_vaccine) return 'Vui lòng đính kèm file Sổ/Chứng nhận tiêm chủng';
     }
+    if (step === 2) {
+      if (form.receive_method === 'email' && !form.email.trim()) {
+        return 'Vui lòng quay lại Bước 1 điền Email trước khi chọn nhận qua Email';
+      }
+      if (form.receive_method === 'postal' && !form.address.trim()) {
+        return 'Vui lòng quay lại Bước 1 điền Địa chỉ trước khi chọn gửi qua Bưu điện';
+      }
+    }
     if (step === 3) {
       if (!files.file_payment) return 'Vui lòng đính kèm Ảnh chụp biên lai thanh toán';
     }
@@ -204,7 +212,7 @@ export default function SubmitPage() {
                   <input className="form-control" type="email" placeholder="email@example.com" value={form.email} onChange={e => set('email', e.target.value)} />
                 </div>
                 <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                  <label className="form-label">Địa chỉ</label>
+                  <label className="form-label">Địa chỉ (cần thiết nếu nhận qua Bưu điện)</label>
                   <input className="form-control" placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh/thành" value={form.address} onChange={e => set('address', e.target.value)} />
                 </div>
               </div>
@@ -246,9 +254,9 @@ export default function SubmitPage() {
             {step === 2 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 {[
-                  { value: 'email', icon: 'fa-envelope', label: 'Nhận qua Email', desc: 'Giấy chứng nhận PDF sẽ được gửi đến email đã đăng ký.', disabled: !form.email },
-                  { value: 'postal', icon: 'fa-truck', label: 'Gửi qua Bưu điện', desc: 'Giấy chứng nhận gốc sẽ được gửi đến địa chỉ của bạn qua đường bưu điện.' },
-                  { value: 'direct', icon: 'fa-building', label: 'Nhận trực tiếp tại CDC', desc: 'Đến nhận trực tiếp tại bộ phận Một cửa — CDC Đà Nẵng, 118 Lê Đình Lý.' },
+                  { value: 'email', icon: 'fa-envelope', label: 'Nhận qua Email', desc: 'Giấy chứng nhận PDF sẽ được gửi đến email đã đăng ký.', disabled: !form.email.trim(), warning: '⚠ Cần điền Email ở bước 1' },
+                  { value: 'postal', icon: 'fa-truck', label: 'Gửi qua Bưu điện', desc: 'Giấy chứng nhận gốc sẽ được gửi đến địa chỉ của bạn qua đường bưu điện.', disabled: !form.address.trim(), warning: '⚠ Cần điền Địa chỉ ở bước 1' },
+                  { value: 'direct', icon: 'fa-building', label: 'Nhận trực tiếp tại CDC', desc: 'Đến nhận trực tiếp tại bộ phận Một cửa — CDC Đà Nẵng, 118 Lê Đình Lý.', disabled: false },
                 ].map(opt => (
                   <label key={opt.value} className={`${styles.receiveOption} ${form.receive_method === opt.value ? styles.receiveSelected : ''} ${opt.disabled ? styles.receiveDisabled : ''}`}>
                     <input type="radio" name="receive_method" value={opt.value} checked={form.receive_method === opt.value} onChange={() => !opt.disabled && set('receive_method', opt.value)} disabled={opt.disabled} style={{ display: 'none' }} />
@@ -256,7 +264,7 @@ export default function SubmitPage() {
                     <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 3 }}>{opt.label}</div>
                       <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{opt.desc}</div>
-                      {opt.disabled && <div style={{ fontSize: 12, color: 'var(--warning)', marginTop: 3 }}>⚠ Cần điền Email ở bước 1</div>}
+                      {opt.disabled && <div style={{ fontSize: 12, color: 'var(--warning)', marginTop: 3 }}>{opt.warning}</div>}
                     </div>
                     {form.receive_method === opt.value && <i className="fa-solid fa-circle-check" style={{ color: 'var(--primary)', fontSize: 20 }} />}
                   </label>
