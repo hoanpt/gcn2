@@ -42,7 +42,7 @@ export async function POST(request) {
 
     // Cập nhật last_login
     try {
-      await db.exec(`UPDATE accounts SET last_login = datetime("now","localtime") WHERE id = ${account.id}`);
+      await db.run('UPDATE accounts SET last_login = CURRENT_TIMESTAMP WHERE id = ?', account.id);
     } catch(e) {
       console.error('[Login] DB update error', e);
     }

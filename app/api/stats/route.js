@@ -67,10 +67,10 @@ export async function GET(request) {
 
     // Lấy thống kê theo ngày (7 ngày gần nhất)
     const last7Days = await db.all(`
-      SELECT date(submitted_at, 'localtime') as day, COUNT(*) as count
+      SELECT TO_CHAR(submitted_at::timestamp, 'YYYY-MM-DD') as day, COUNT(*)::int as count
       FROM applications
-      WHERE submitted_at >= datetime('now', 'localtime', '-7 days')
-      GROUP BY day
+      WHERE submitted_at >= NOW() - INTERVAL '7 days'
+      GROUP BY TO_CHAR(submitted_at::timestamp, 'YYYY-MM-DD')
       ORDER BY day
     `);
 
