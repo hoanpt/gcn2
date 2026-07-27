@@ -1,140 +1,25 @@
 'use client';
-import { useState, useRef, useEffect } from 'react';
+import { useState } from 'react';
 import { FAQ_ITEMS } from '@/lib/faqData';
 
 export default function AIChatbot() {
   const [isOpen, setIsOpen] = useState(false);
-  const [input, setInput] = useState('');
-  const [messages, setMessages] = useState([
-    {
-      id: 1,
-      sender: 'bot',
-      text: 'Xin chào! Bạn có thể chọn danh sách các Câu hỏi thường gặp bên dưới hoặc nhập từ khóa để tìm câu trả lời nhanh chóng.',
-      time: getCurrentTime()
-    }
-  ]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [expandedId, setExpandedId] = useState(1); // Mặc định mở câu 1
 
-  const messagesEndRef = useRef(null);
-
-  useEffect(() => {
-    if (isOpen) {
-      scrollToBottom();
-    }
-  }, [messages, isOpen]);
-
-  function scrollToBottom() {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  function toggleFaq(id) {
+    setExpandedId(prev => (prev === id ? null : id));
   }
 
-  function getCurrentTime() {
-    const d = new Date();
-    return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
-  }
-
-  function handleSend(textToSend) {
-    const query = (textToSend || input).trim();
-    if (!query) return;
-
-    const userMsg = {
-      id: Date.now(),
-      sender: 'user',
-      text: query,
-      time: getCurrentTime()
-    };
-
-    setMessages(prev => [...prev, userMsg]);
-    if (!textToSend) setInput('');
-
-    setTimeout(() => {
-      const replyText = findAnswer(query);
-      const botMsg = {
-        id: Date.now() + 1,
-        sender: 'bot',
-        text: replyText,
-        time: getCurrentTime()
-      };
-      setMessages(prev => [...prev, botMsg]);
-    }, 300);
-  }
-
-  function findAnswer(query) {
-    const qLower = query.toLowerCase();
-
-    // 1. Direct match with exact 11 FAQ items
-    for (const item of FAQ_ITEMS) {
-      if (item.q.toLowerCase() === qLower) {
-        return item.a;
-      }
-    }
-
-    // 2. Keyword match against 11 FAQs
-    let bestMatch = null;
-    let maxScore = 0;
-
-    for (const item of FAQ_ITEMS) {
-      const words = item.q.toLowerCase().replace(/[\?\.\,]/g, '').split(/\s+/);
-      let score = 0;
-      words.forEach(w => {
-        if (w.length > 2 && qLower.includes(w)) {
-          score++;
-        }
-      });
-
-      if (qLower.includes('giá') || qLower.includes('chi phí') || qLower.includes('lệ phí') || qLower.includes('tiền')) {
-        if (item.id === 9) score += 5;
-      }
-      if (qLower.includes('ở đâu') || qLower.includes('địa điểm') || qLower.includes('địa chỉ')) {
-        if (item.id === 3) score += 5;
-      }
-      if (qLower.includes('giấy tờ') || qLower.includes('mang theo') || qLower.includes('thủ tục')) {
-        if (item.id === 4) score += 5;
-      }
-      if (qLower.includes('bao lâu') || qLower.includes('mấy ngày') || qLower.includes('khi nào')) {
-        if (item.id === 6) score += 5;
-      }
-      if (qLower.includes('nơi khác') || qLower.includes('đã tiêm ở')) {
-        if (item.id === 5) score += 5;
-      }
-      if (qLower.includes('thời hạn') || qLower.includes('hạn sử dụng')) {
-        if (item.id === 7) score += 5;
-      }
-      if (qLower.includes('mất') || qLower.includes('cấp lại')) {
-        if (item.id === 8) score += 5;
-      }
-      if (qLower.includes('nước nào') || qLower.includes('xuất cảnh') || qLower.includes('du học')) {
-        if (item.id === 10) score += 5;
-      }
-      if (qLower.includes('chưa tiêm')) {
-        if (item.id === 11) score += 5;
-      }
-
-      if (score > maxScore) {
-        maxScore = score;
-        bestMatch = item;
-      }
-    }
-
-    if (bestMatch && maxScore > 0) {
-      return bestMatch.a;
-    }
-
-    return 'Trường hợp thắc mắc của bạn chưa có trong danh mục FAQ, vui lòng liên hệ trực tiếp CDC Đà Nẵng qua Hotline: 0236.3890412 hoặc đến bộ phận Một cửa tại 118 Lê Đình Lý, Thanh Khê, Đà Nẵng để được giải đáp chi tiết.';
-  }
-
-  function clearHistory() {
-    setMessages([
-      {
-        id: Date.now(),
-        sender: 'bot',
-        text: 'Xin chào! Bạn có thể chọn danh sách các Câu hỏi thường gặp bên dưới hoặc nhập từ khóa để tìm câu trả lời nhanh chóng.',
-        time: getCurrentTime()
-      }
-    ]);
-  }
+  const filteredFaqs = FAQ_ITEMS.filter(item => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    return item.q.toLowerCase().includes(q) || item.a.toLowerCase().includes(q);
+  });
 
   return (
     <div className="ai-chatbot-root">
-      {/* Chat Box Popup */}
+      {/* Cửa sổ Popup FAQ */}
       {isOpen && (
         <div className="ai-chat-window">
           {/* Header */}
@@ -142,7 +27,6 @@ export default function AIChatbot() {
             <div className="ai-chat-header-info">
               <div className="ai-avatar-wrapper">
                 <i className="fa-solid fa-circle-question" style={{ fontSize: 22 }} />
-                <span className="ai-status-dot" />
               </div>
               <div>
                 <h4>Câu Hỏi Thường Gặp</h4>
@@ -150,8 +34,12 @@ export default function AIChatbot() {
               </div>
             </div>
             <div className="ai-chat-header-actions">
-              <button title="Làm mới chat" onClick={clearHistory} className="ai-action-btn">
-                <i className="fa-regular fa-trash-can" />
+              <button 
+                title="Thu gọn tất cả" 
+                onClick={() => { setExpandedId(null); setSearchQuery(''); }} 
+                className="ai-action-btn"
+              >
+                <i className="fa-solid fa-rotate-left" />
               </button>
               <button title="Đóng" onClick={() => setIsOpen(false)} className="ai-action-btn">
                 <i className="fa-solid fa-xmark" />
@@ -159,68 +47,77 @@ export default function AIChatbot() {
             </div>
           </div>
 
-          {/* Body */}
-          <div className="ai-chat-body">
-            {messages.map(m => (
-              <div key={m.id} className={`ai-msg-group ${m.sender === 'user' ? 'ai-msg-user' : 'ai-msg-bot'}`}>
-                {m.sender === 'bot' && (
-                  <div className="ai-msg-avatar">
-                    <i className="fa-solid fa-hospital-user" style={{ fontSize: 14, color: 'var(--primary)' }} />
-                  </div>
-                )}
-                <div className="ai-msg-content">
-                  <div className="ai-msg-bubble">
-                    {m.text.split('\n').map((line, i) => (
-                      <span key={i}>{line}<br /></span>
-                    ))}
-                  </div>
-                  <span className="ai-msg-time">{m.time}</span>
-                </div>
-              </div>
-            ))}
-
-            {/* List of 11 FAQs */}
-            <div className="ai-quick-suggestions">
-              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--gray-500)', margin: '4px 0 2px', textTransform: 'uppercase' }}>
-                Danh sách 11 câu hỏi thường gặp:
-              </div>
-              {FAQ_ITEMS.map(item => (
-                <button
-                  key={item.id}
-                  className="ai-suggestion-chip"
-                  onClick={() => handleSend(item.q)}
-                >
-                  <i className="fa-regular fa-circle-question" style={{ marginRight: 6, color: 'var(--primary)' }} />
-                  {item.q}
-                </button>
-              ))}
-            </div>
-
-            <div ref={messagesEndRef} />
-          </div>
-
-          {/* Footer Input */}
-          <div className="ai-chat-footer">
+          {/* Thanh Tìm Kiếm */}
+          <div className="faq-search-bar">
+            <i className="fa-solid fa-magnifying-glass" style={{ color: 'var(--gray-400)' }} />
             <input
               type="text"
-              className="ai-chat-input"
-              placeholder="Nhập câu hỏi... (Enter để gửi)"
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleSend()}
+              className="faq-search-input"
+              placeholder="Tìm kiếm câu hỏi..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
             />
-            <button
-              className="ai-chat-send-btn"
-              onClick={() => handleSend()}
-              disabled={!input.trim()}
-            >
-              <i className="fa-solid fa-paper-plane" />
-            </button>
+            {searchQuery && (
+              <button className="faq-search-clear" onClick={() => setSearchQuery('')}>
+                <i className="fa-solid fa-xmark" />
+              </button>
+            )}
+          </div>
+
+          {/* Danh sách 11 Câu hỏi (Hiện câu trả lời ngay bên dưới) */}
+          <div className="ai-chat-body" style={{ padding: '12px 16px' }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--gray-500)', marginBottom: 8, textTransform: 'uppercase' }}>
+              Danh sách 11 câu hỏi thường gặp ({filteredFaqs.length}):
+            </div>
+
+            {filteredFaqs.length === 0 ? (
+              <div className="empty-state" style={{ padding: '30px 10px' }}>
+                <i className="fa-solid fa-magnifying-glass" style={{ fontSize: 24, opacity: 0.4, marginBottom: 8 }} />
+                <p style={{ fontSize: 13 }}>Không tìm thấy câu hỏi phù hợp với "{searchQuery}"</p>
+              </div>
+            ) : (
+              <div className="faq-accordion-list">
+                {filteredFaqs.map((item) => {
+                  const isExpanded = expandedId === item.id || (searchQuery.trim().length > 0);
+                  return (
+                    <div key={item.id} className={`faq-widget-card ${isExpanded ? 'faq-expanded' : ''}`}>
+                      <button
+                        className="faq-widget-question"
+                        onClick={() => toggleFaq(item.id)}
+                      >
+                        <span className="faq-widget-q-title">
+                          <span className="faq-num-badge">{item.id}</span>
+                          {item.q}
+                        </span>
+                        <i className={`fa-solid ${isExpanded ? 'fa-chevron-up' : 'fa-chevron-down'} faq-chevron`} />
+                      </button>
+
+                      {/* Câu trả lời hiện ngay bên dưới câu hỏi */}
+                      {isExpanded && (
+                        <div className="faq-widget-answer">
+                          <div className="faq-answer-content">
+                            <i className="fa-solid fa-circle-check" style={{ color: 'var(--success)', marginTop: 3, flexShrink: 0 }} />
+                            <div>{item.a}</div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Footer liên hệ hỗ trợ */}
+          <div className="ai-chat-footer" style={{ padding: '12px 16px', background: '#f8fafc', borderTop: '1px solid var(--border)' }}>
+            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+              Cần hỗ trợ thêm? Gọi CDC Đà Nẵng: <a href="tel:02363890412" style={{ fontWeight: 700, color: 'var(--primary)' }}>0236.3890412</a>
+            </span>
           </div>
         </div>
       )}
 
-      {/* Toggle Button */}
+      {/* Floating Toggle Button */}
       <button
         className={`ai-chat-toggle-btn ${isOpen ? 'ai-toggle-open' : ''}`}
         onClick={() => setIsOpen(prev => !prev)}
