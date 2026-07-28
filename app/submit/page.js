@@ -357,26 +357,38 @@ export default function SubmitPage() {
                           padding: '10px 14px',
                           background: '#f8fafc',
                           borderRadius: 8,
-                          border: '1px solid var(--border)'
+                          border: '1px solid var(--border)',
+                          gap: 12
                         }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
                             <span style={{
                               background: '#0263e0',
                               color: 'white',
                               fontSize: 11,
                               fontWeight: 700,
                               padding: '2px 8px',
-                              borderRadius: 6
+                              borderRadius: 6,
+                              flexShrink: 0
                             }}>Trang {idx + 1}</span>
-                            <div style={{ textAlign: 'left' }}>
-                              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--gray-800)' }}>{file.name}</div>
+                            <div style={{ textAlign: 'left', minWidth: 0, flex: 1 }}>
+                              <div style={{
+                                fontSize: 13,
+                                fontWeight: 600,
+                                color: 'var(--gray-800)',
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                maxWidth: '100%'
+                              }} title={file.name}>
+                                {file.name}
+                              </div>
                               <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{(file.size / 1024).toFixed(1)} KB</div>
                             </div>
                           </div>
                           <button
                             type="button"
                             className="btn btn-sm btn-ghost"
-                            style={{ color: 'var(--danger)', padding: '4px 8px' }}
+                            style={{ color: 'var(--danger)', padding: '4px 8px', flexShrink: 0 }}
                             onClick={(e) => {
                               e.stopPropagation();
                               setFiles(f => ({
