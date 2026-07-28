@@ -353,7 +353,7 @@ export default function SubmitPage() {
                         <div key={idx} style={{
                           display: 'flex',
                           alignItems: 'center',
-                          justify-content: 'space-between',
+                          justifyContent: 'space-between',
                           padding: '10px 14px',
                           background: '#f8fafc',
                           borderRadius: 8,
