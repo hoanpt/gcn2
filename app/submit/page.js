@@ -28,7 +28,12 @@ export default function SubmitPage() {
     name: '', cccd: '', dob: '', gender: '', phone: '', email: '', address: '',
     receive_method: 'direct', notes: '',
   });
-  const [files, setFiles] = useState({ file_cccd: null, file_vaccine: null, file_payment: null });
+  const [files, setFiles] = useState({
+    file_cccd_front: null,
+    file_cccd_back: null,
+    vaccine_pages: [],
+    file_payment: null,
+  });
 
   function set(field, value) {
     setForm(prev => ({ ...prev, [field]: value }));
@@ -51,8 +56,9 @@ export default function SubmitPage() {
       if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) return 'Email không hợp lệ';
     }
     if (step === 1) {
-      if (!files.file_cccd) return 'Vui lòng đính kèm file CCCD/Hộ chiếu';
-      if (!files.file_vaccine) return 'Vui lòng đính kèm file Sổ/Chứng nhận tiêm chủng';
+      if (!files.file_cccd_front) return 'Vui lòng đính kèm ảnh CCCD / Hộ chiếu (Mặt trước)';
+      if (!files.vaccine_pages || files.vaccine_pages.length === 0) return 'Vui lòng đính kèm ít nhất 1 trang Sổ / Chứng nhận tiêm chủng';
+      if (files.vaccine_pages.length > 20) return 'Chỉ được gửi tối đa 20 trang Sổ tiêm chủng';
     }
     if (step === 2) {
       if (form.receive_method === 'email' && !form.email.trim()) {
@@ -82,8 +88,13 @@ export default function SubmitPage() {
       const fd = new FormData();
       fd.append('id', appId);
       Object.entries(form).forEach(([k, v]) => fd.append(k, v));
-      if (files.file_cccd) fd.append('file_cccd', files.file_cccd);
-      if (files.file_vaccine) fd.append('file_vaccine', files.file_vaccine);
+      if (files.file_cccd_front) fd.append('file_cccd_front', files.file_cccd_front);
+      if (files.file_cccd_back) fd.append('file_cccd_back', files.file_cccd_back);
+      
+      files.vaccine_pages.forEach(file => {
+        fd.append('files_vaccine', file);
+      });
+
       if (files.file_payment) fd.append('file_payment', files.file_payment);
 
       const res = await fetch('/api/applications', { method: 'POST', body: fd });
@@ -220,33 +231,168 @@ export default function SubmitPage() {
 
             {/* STEP 1: Giấy tờ */}
             {step === 1 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-                {[
-                  { key: 'file_cccd', label: 'CCCD / Hộ chiếu', icon: 'fa-id-card', desc: 'Mặt trước & mặt sau CCCD, hoặc trang thông tin Hộ chiếu. Chấp nhận: JPG, PNG, PDF (tối đa 10MB).' },
-                  { key: 'file_vaccine', label: 'Sổ / Chứng nhận tiêm chủng', icon: 'fa-syringe', desc: 'Trang ghi nhận các mũi tiêm hợp lệ. Chấp nhận: JPG, PNG, PDF (tối đa 10MB).' },
-                ].map(({ key, label, icon, desc }) => (
-                  <div key={key} className="file-drop" onClick={() => document.getElementById(key).click()}>
-                    <input id={key} type="file" accept="image/jpeg,image/png,application/pdf" onChange={e => { setFiles(f => ({ ...f, [key]: e.target.files[0] })); setError(''); }} />
-                    {files[key] ? (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, justifyContent: 'center' }}>
-                        <i className="fa-solid fa-file-circle-check" style={{ fontSize: 28, color: 'var(--success)' }} />
-                        <div style={{ textAlign: 'left' }}>
-                          <div style={{ fontWeight: 600, color: 'var(--success)' }}>{files[key].name}</div>
-                          <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{(files[key].size / 1024).toFixed(1)} KB — Click để thay đổi</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                {/* 1. Phần CCCD / Hộ chiếu */}
+                <div style={{ background: '#ffffff', padding: 20, borderRadius: 12, border: '1px solid var(--border)' }}>
+                  <h4 style={{ fontSize: 16, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--gray-900)' }}>
+                    <i className="fa-solid fa-id-card" style={{ color: 'var(--primary)' }} />
+                    1. Ảnh CCCD / Hộ chiếu <span style={{ color: 'var(--danger)' }}>*</span>
+                  </h4>
+                  <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>
+                    Vui lòng tải lên hình ảnh Mặt trước và Mặt sau CCCD (hoặc trang thông tin Hộ chiếu). Chấp nhận: JPG, PNG, PDF (tối đa 10MB).
+                  </p>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
+                    {/* Mặt trước */}
+                    <div className="file-drop" style={{ background: files.file_cccd_front ? '#ecfdf5' : '#f8fafc', borderColor: files.file_cccd_front ? 'var(--success)' : 'var(--border)' }} onClick={() => document.getElementById('file_cccd_front').click()}>
+                      <input id="file_cccd_front" type="file" accept="image/jpeg,image/png,application/pdf" onChange={e => {
+                        if (e.target.files[0]) {
+                          setFiles(f => ({ ...f, file_cccd_front: e.target.files[0] }));
+                          setError('');
+                        }
+                      }} />
+                      {files.file_cccd_front ? (
+                        <div>
+                          <i className="fa-solid fa-file-circle-check" style={{ fontSize: 32, color: 'var(--success)', marginBottom: 8 }} />
+                          <div style={{ fontWeight: 600, color: 'var(--success)', fontSize: 14 }}>Mặt trước: {files.file_cccd_front.name}</div>
+                          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{(files.file_cccd_front.size / 1024).toFixed(1)} KB — Bấm để đổi ảnh</div>
                         </div>
-                      </div>
-                    ) : (
-                      <>
-                        <i className={`fa-solid ${icon}`} style={{ fontSize: 32, color: 'var(--primary)', marginBottom: 10 }} />
-                        <div style={{ fontWeight: 600, marginBottom: 6 }}>{label} <span style={{ color: 'var(--danger)' }}>*</span></div>
-                        <p style={{ fontSize: 13 }}>{desc}</p>
-                        <div className="btn btn-outline btn-sm" style={{ marginTop: 12 }}>
-                          <i className="fa-solid fa-upload" /> Chọn file
+                      ) : (
+                        <>
+                          <i className="fa-solid fa-id-card" style={{ fontSize: 30, color: 'var(--primary)', marginBottom: 8 }} />
+                          <div style={{ fontWeight: 600, fontSize: 14 }}>CCCD / Hộ chiếu (Mặt trước) <span style={{ color: 'var(--danger)' }}>*</span></div>
+                          <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>Tải ảnh mặt trước</p>
+                          <div className="btn btn-outline btn-sm" style={{ marginTop: 10 }}><i className="fa-solid fa-upload" /> Chọn file</div>
+                        </>
+                      )}
+                    </div>
+
+                    {/* Mặt sau */}
+                    <div className="file-drop" style={{ background: files.file_cccd_back ? '#ecfdf5' : '#f8fafc', borderColor: files.file_cccd_back ? 'var(--success)' : 'var(--border)' }} onClick={() => document.getElementById('file_cccd_back').click()}>
+                      <input id="file_cccd_back" type="file" accept="image/jpeg,image/png,application/pdf" onChange={e => {
+                        if (e.target.files[0]) {
+                          setFiles(f => ({ ...f, file_cccd_back: e.target.files[0] }));
+                          setError('');
+                        }
+                      }} />
+                      {files.file_cccd_back ? (
+                        <div>
+                          <i className="fa-solid fa-file-circle-check" style={{ fontSize: 32, color: 'var(--success)', marginBottom: 8 }} />
+                          <div style={{ fontWeight: 600, color: 'var(--success)', fontSize: 14 }}>Mặt sau: {files.file_cccd_back.name}</div>
+                          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{(files.file_cccd_back.size / 1024).toFixed(1)} KB — Bấm để đổi ảnh</div>
                         </div>
-                      </>
-                    )}
+                      ) : (
+                        <>
+                          <i className="fa-solid fa-address-card" style={{ fontSize: 30, color: 'var(--primary)', marginBottom: 8 }} />
+                          <div style={{ fontWeight: 600, fontSize: 14 }}>CCCD (Mặt sau)</div>
+                          <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>Tải ảnh mặt sau (Tùy chọn)</p>
+                          <div className="btn btn-outline btn-sm" style={{ marginTop: 10 }}><i className="fa-solid fa-upload" /> Chọn file</div>
+                        </>
+                      )}
+                    </div>
                   </div>
-                ))}
+                </div>
+
+                {/* 2. Phần Sổ tiêm chủng (cho phép tối đa 20 hình ảnh) */}
+                <div style={{ background: '#ffffff', padding: 20, borderRadius: 12, border: '1px solid var(--border)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                    <h4 style={{ fontSize: 16, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--gray-900)' }}>
+                      <i className="fa-solid fa-syringe" style={{ color: 'var(--primary)' }} />
+                      2. Sổ / Chứng nhận tiêm chủng <span style={{ color: 'var(--danger)' }}>*</span>
+                    </h4>
+                    <span className="badge badge-pending" style={{ fontSize: 12 }}>
+                      Đã chọn: {files.vaccine_pages.length} / 20 trang
+                    </span>
+                  </div>
+
+                  <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>
+                    Hệ thống cho phép gửi <strong>tối đa 20 hình ảnh/file</strong> (mỗi hình tương ứng 1 trang của sổ tiêm chủng). Bạn có thể chọn nhiều ảnh cùng lúc.
+                  </p>
+
+                  {/* Dropzone nhiều trang */}
+                  {files.vaccine_pages.length < 20 && (
+                    <div className="file-drop" onClick={() => document.getElementById('files_vaccine').click()} style={{ marginBottom: 16 }}>
+                      <input
+                        id="files_vaccine"
+                        type="file"
+                        multiple
+                        accept="image/jpeg,image/png,application/pdf"
+                        onChange={e => {
+                          const selectedFiles = Array.from(e.target.files);
+                          if (selectedFiles.length === 0) return;
+
+                          setFiles(f => {
+                            const current = [...f.vaccine_pages];
+                            const combined = [...current, ...selectedFiles].slice(0, 20);
+                            return { ...f, vaccine_pages: combined };
+                          });
+                          setError('');
+                          e.target.value = '';
+                        }}
+                      />
+                      <i className="fa-solid fa-cloud-arrow-up" style={{ fontSize: 32, color: 'var(--primary)', marginBottom: 8 }} />
+                      <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 4 }}>
+                        Bấm để chọn hình ảnh các trang Sổ tiêm chủng
+                      </div>
+                      <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                        Giữ phím Ctrl / Shift để chọn nhiều hình ảnh (Tối đa 20 trang)
+                      </p>
+                      <div className="btn btn-primary btn-sm" style={{ marginTop: 12 }}>
+                        <i className="fa-solid fa-plus" /> Chọn hình ảnh trang sổ
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Danh sách các trang đã chọn */}
+                  {files.vaccine_pages.length > 0 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--gray-700)', marginBottom: 2 }}>
+                        Danh sách {files.vaccine_pages.length} trang đã đính kèm:
+                      </div>
+                      {files.vaccine_pages.map((file, idx) => (
+                        <div key={idx} style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justify-content: 'space-between',
+                          padding: '10px 14px',
+                          background: '#f8fafc',
+                          borderRadius: 8,
+                          border: '1px solid var(--border)'
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <span style={{
+                              background: '#0263e0',
+                              color: 'white',
+                              fontSize: 11,
+                              fontWeight: 700,
+                              padding: '2px 8px',
+                              borderRadius: 6
+                            }}>Trang {idx + 1}</span>
+                            <div style={{ textAlign: 'left' }}>
+                              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--gray-800)' }}>{file.name}</div>
+                              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{(file.size / 1024).toFixed(1)} KB</div>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-ghost"
+                            style={{ color: 'var(--danger)', padding: '4px 8px' }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setFiles(f => ({
+                                ...f,
+                                vaccine_pages: f.vaccine_pages.filter((_, i) => i !== idx)
+                              }));
+                            }}
+                            title="Xóa trang này"
+                          >
+                            <i className="fa-solid fa-trash-can" /> Xóa
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
@@ -307,7 +453,7 @@ export default function SubmitPage() {
                       <i className="fa-solid fa-file-invoice-dollar" style={{ fontSize: 28, color: 'var(--success)' }} />
                       <div style={{ textAlign: 'left' }}>
                         <div style={{ fontWeight: 600, color: 'var(--success)' }}>{files.file_payment.name}</div>
-                        <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{(files.file_payment.size / 1024).toFixed(1)} KB — Click để đổi ảnh khác</div>
+                        <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{(files.file_payment.size / 1024).toFixed(1)} KB — Bấm để đổi ảnh</div>
                       </div>
                     </div>
                   ) : (
@@ -339,8 +485,9 @@ export default function SubmitPage() {
                     ['Email', form.email || 'Không có'],
                     ['Địa chỉ', form.address || 'Không có'],
                     ['Hình thức nhận KQ', form.receive_method === 'email' ? 'Qua Email' : form.receive_method === 'postal' ? 'Bưu điện' : 'Nhận trực tiếp'],
-                    ['File CCCD', files.file_cccd?.name || 'Chưa đính kèm'],
-                    ['File Tiêm chủng', files.file_vaccine?.name || 'Chưa đính kèm'],
+                    ['CCCD (Mặt trước)', files.file_cccd_front?.name || 'Chưa đính kèm'],
+                    ['CCCD (Mặt sau)', files.file_cccd_back?.name || 'Không đính kèm'],
+                    ['Sổ tiêm chủng', `${files.vaccine_pages.length} trang (${files.vaccine_pages.map(f => f.name).join(', ')})`],
                     ['Biên lai thanh toán', files.file_payment?.name || 'Chưa đính kèm'],
                   ].map(([label, value]) => (
                     <div key={label} className={styles.confirmRow}>

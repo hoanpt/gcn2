@@ -99,18 +99,52 @@ export async function POST(request) {
       fs.mkdirSync(uploadDir, { recursive: true });
     }
 
-    const fileCccd = formData.get('file_cccd');
-    const fileVaccine = formData.get('file_vaccine');
+    const filesToUpload = [];
+
+    // CCCD Mặt trước
+    const fileCccdFront = formData.get('file_cccd_front') || formData.get('file_cccd');
+    if (fileCccdFront && typeof fileCccdFront !== 'string' && fileCccdFront.name) {
+      filesToUpload.push(['CCCD_MatTruoc', fileCccdFront, 'CCCD / Hộ chiếu (Mặt trước)']);
+    }
+
+    // CCCD Mặt sau
+    const fileCccdBack = formData.get('file_cccd_back');
+    if (fileCccdBack && typeof fileCccdBack !== 'string' && fileCccdBack.name) {
+      filesToUpload.push(['CCCD_MatSau', fileCccdBack, 'CCCD (Mặt sau)']);
+    }
+
+    // Sổ tiêm chủng (nhiều trang)
+    const vaccineFiles = formData.getAll('files_vaccine');
+    let vIdx = 1;
+    for (const f of vaccineFiles) {
+      if (f && typeof f !== 'string' && f.name) {
+        filesToUpload.push([`SoTiemChung_Trang_${vIdx}`, f, `Sổ tiêm chủng (Trang ${vIdx})`]);
+        vIdx++;
+      }
+    }
+    // Check indexed entries file_vaccine_0, file_vaccine_1...
+    for (let i = 0; i < 20; i++) {
+      const f = formData.get(`file_vaccine_${i}`);
+      if (f && typeof f !== 'string' && f.name) {
+        filesToUpload.push([`SoTiemChung_Trang_${vIdx}`, f, `Sổ tiêm chủng (Trang ${vIdx})`]);
+        vIdx++;
+      }
+    }
+    // Fallback single file_vaccine
+    if (vIdx === 1) {
+      const singleVaccine = formData.get('file_vaccine');
+      if (singleVaccine && typeof singleVaccine !== 'string' && singleVaccine.name) {
+        filesToUpload.push(['SoTiemChung_Trang_1', singleVaccine, 'Sổ tiêm chủng (Trang 1)']);
+      }
+    }
+
+    // Biên lai thanh toán
     const filePayment = formData.get('file_payment');
+    if (filePayment && typeof filePayment !== 'string' && filePayment.name) {
+      filesToUpload.push(['BienLaiThanhToan', filePayment, 'Biên lai thanh toán']);
+    }
 
-    const filesToUpload = [
-      ['CCCD_HoChieu', fileCccd],
-      ['SoTiemChung', fileVaccine],
-      ['BienLaiThanhToan', filePayment]
-    ];
-
-    for (const [key, file] of filesToUpload) {
-      if (!file || !file.name || typeof file === 'string') continue;
+    for (const [key, file, displayTitle] of filesToUpload) {
       const buffer = Buffer.from(await file.arrayBuffer());
       const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
       const filename = `${id}_${Date.now()}_${key}_${safeName}`;
@@ -120,6 +154,7 @@ export async function POST(request) {
       
       filesInfo.push({
         label: key,
+        displayTitle: displayTitle || key,
         originalName: file.name,
         mimeType: file.type,
         size: file.size,
