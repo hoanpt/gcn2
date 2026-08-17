@@ -207,6 +207,34 @@ export default function DashboardPage() {
     }
   }
 
+  const [downloadingZipId, setDownloadingZipId] = useState(null);
+
+  async function handleDownloadZip(appId, appName) {
+    setDownloadingZipId(appId);
+    try {
+      const res = await fetch(`/api/applications/${appId}/download-all`);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(`⚠️ KHÔNG THỂ TẢI TẬP TIN ZIP (Mã HS: ${appId}):\n\n${data.error || 'Tệp đính kèm không tồn tại.'}`);
+        return;
+      }
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const safeName = (appName || 'Citizen').replace(/[^a-zA-Z0-9_\-]/g, '_');
+      a.download = `${appId}_${safeName}_TatCaFile.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      alert('Lỗi tải file: ' + e.message);
+    } finally {
+      setDownloadingZipId(null);
+    }
+  }
+
   return (
     <div className={styles.adminLayout}>
       {/* Nav */}
@@ -401,15 +429,15 @@ export default function DashboardPage() {
                     <td><span className={`badge ${st.cls}`}>{st.text}</span></td>
                     <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                       <div style={{ display: 'inline-flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
-                        <a
-                          href={`/api/applications/${app.id}/download-all`}
-                          download
+                        <button
+                          onClick={() => handleDownloadZip(app.id, app.name)}
+                          disabled={downloadingZipId === app.id}
                           className="btn btn-outline btn-sm"
                           title="Tải nén toàn bộ file (.ZIP)"
                           style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
                         >
-                          <i className="fa-solid fa-file-zipper" style={{ color: 'var(--primary)' }} /> Tải file
-                        </a>
+                          {downloadingZipId === app.id ? <span className="spinner spinner-dark" style={{ width: 12, height: 12 }} /> : <i className="fa-solid fa-file-zipper" style={{ color: 'var(--primary)' }} />} Tải file
+                        </button>
                         <Link href={`/admin/cases/${app.id}`} className="btn btn-primary btn-sm">
                           <i className="fa-solid fa-eye" /> Xử lý
                         </Link>

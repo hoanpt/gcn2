@@ -136,6 +136,34 @@ export default function CaseDetailPage({ params }) {
 
   const statusInfo = STATUS_OPTS.find(s => s.value === app.status) || STATUS_OPTS[0];
 
+  const [downloadingZip, setDownloadingZip] = useState(false);
+
+  async function handleDownloadZip() {
+    setDownloadingZip(true);
+    try {
+      const res = await fetch(`/api/applications/${app.id}/download-all`);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(`⚠️ KHÔNG THỂ TẢI TẬP TIN ZIP:\n\n${data.error || 'Tệp đính kèm không tồn tại.'}`);
+        return;
+      }
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const safeName = (app.name || 'Citizen').replace(/[^a-zA-Z0-9_\-]/g, '_');
+      a.download = `${app.id}_${safeName}_TatCaFile.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      alert('Lỗi tải file: ' + e.message);
+    } finally {
+      setDownloadingZip(false);
+    }
+  }
+
   return (
     <div className={styles.adminLayout}>
       <nav className={styles.adminNav}>
@@ -219,14 +247,15 @@ export default function CaseDetailPage({ params }) {
             <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3><i className="fa-solid fa-paperclip" style={{ color: 'var(--primary)', marginRight: 8 }} />File đính kèm</h3>
               {(app.files_json && app.files_json.length > 0) && (
-                <a
-                  href={`/api/applications/${app.id}/download-all`}
-                  download
+                <button
+                  onClick={handleDownloadZip}
+                  disabled={downloadingZip}
                   className="btn btn-sm btn-primary"
                   style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 600 }}
                 >
-                  <i className="fa-solid fa-file-zipper" /> Tải tất cả file (.ZIP)
-                </a>
+                  {downloadingZip ? <span className="spinner" /> : <i className="fa-solid fa-file-zipper" />}
+                  Tải tất cả file (.ZIP)
+                </button>
               )}
             </div>
             <div className="card-body">

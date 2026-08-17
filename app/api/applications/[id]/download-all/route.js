@@ -28,10 +28,6 @@ export async function GET(request, { params }) {
 
     const files = app.files_json ? (typeof app.files_json === 'string' ? JSON.parse(app.files_json) : app.files_json) : [];
 
-    if (!files || files.length === 0) {
-      return NextResponse.json({ error: 'Hồ sơ này không có file đính kèm nào' }, { status: 404 });
-    }
-
     const zip = new JSZip();
     let fileCount = 0;
 
@@ -72,8 +68,29 @@ export async function GET(request, { params }) {
       }
     }
 
+    // Nếu các tập tin vật lý trên đĩa không tồn tại (vd: do server làm mới container), tự tạo file thông tin danh sách tệp đính kèm
     if (fileCount === 0) {
-      return NextResponse.json({ error: 'Không tìm thấy tệp đính kèm nào trên đĩa lưu trữ' }, { status: 404 });
+      let textNotice = `TRUNG TÂM KIỂM SOÁT BỆNH TẬT TP. ĐÀ NẴNG (CDC ĐÀ NẴNG)\n`;
+      textNotice += `=========================================================\n`;
+      textNotice += `THÔNG TIN TỆP ĐÍNH KÈM HỒ SƠ: ${app.id}\n`;
+      textNotice += `Họ và tên người nộp: ${app.name}\n`;
+      textNotice += `CCCD / Hộ chiếu: ${app.cccd}\n`;
+      textNotice += `Số điện thoại: ${app.phone}\n`;
+      textNotice += `Thời gian nộp: ${new Date(app.submitted_at).toLocaleString('vi-VN')}\n\n`;
+      textNotice += `DANH SÁCH FILE ĐÃ ĐĂNG KÝ TRONG HỆ THỐNG:\n`;
+
+      if (files && files.length > 0) {
+        for (let idx = 0; idx < files.length; idx++) {
+          const f = files[idx];
+          textNotice += `${idx + 1}. [${f.displayTitle || f.label || 'Tệp'}] - Tên gốc: ${f.originalName || 'Không rõ'} (${f.localPath || 'Tự động'})\n`;
+        }
+      } else {
+        textNotice += `(Hồ sơ này người dân không đính kèm file nào khi đăng ký)\n`;
+      }
+
+      textNotice += `\nGhi chú: Tệp tin đính kèm hiện tại tạm thời chưa khả dụng trên đĩa lưu trữ máy chủ.\n`;
+
+      zip.file(`THONG_TIN_TEP_DINH_KEM_${app.id}.txt`, Buffer.from(textNotice, 'utf-8'));
     }
 
     const zipBuffer = await zip.generateAsync({
