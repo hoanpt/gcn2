@@ -1,0 +1,11 @@
+.git
+.next
+node_modules
+data/*.db
+data/*.db-wal
+data/*.db-shm
+data/backups/*
+public/uploads/*
+!public/uploads/.gitkeep
+scratch/
+npm-debug.log

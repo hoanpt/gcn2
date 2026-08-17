@@ -1,10 +1,17 @@
 # Nixpacks configuration for Coolify / Railway deployment
 
+[phases.setup]
+nixPkgs = ["python3", "gcc", "gnumake"]
+
 [phases.install]
 cmds = ["npm install"]
 
 [phases.build]
-cmds = ["npm run build"]
+cmds = [
+  "npm run build",
+  "cp -R public .next/standalone/public",
+  "cp -R .next/static .next/standalone/.next/static"
+]
 
 [start]
-cmd = "npm run start"
+cmd = "node .next/standalone/server.js"
