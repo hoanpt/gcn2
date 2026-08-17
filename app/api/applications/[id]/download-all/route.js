@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import JSZip from 'jszip';
 import getDb from '@/lib/db';
+import { downloadFileFromDrive, listFilesInFolder } from '@/lib/drive';
 
 function getTokenFromReq(request) {
   const { verifyToken } = require('@/lib/auth');
@@ -30,45 +31,121 @@ export async function GET(request, { params }) {
 
     const zip = new JSZip();
     let fileCount = 0;
+    const addedNames = new Set();
 
+    // Helper lấy Buffer nội dung file từ nhiều nguồn (Local disk, Google Drive, URL)
+    async function getFileBuffer(f) {
+      if (!f) return null;
+
+      // 1. Kiểm tra ổ đĩa cục bộ (localPath)
+      if (f.localPath) {
+        const relPath = f.localPath.startsWith('/') ? f.localPath.substring(1) : f.localPath;
+        const fullPath = path.join(process.cwd(), 'public', relPath);
+        if (fs.existsSync(fullPath)) {
+          try {
+            return fs.readFileSync(fullPath);
+          } catch (e) {
+            console.error(`[DownloadAll] Lỗi đọc file local ${fullPath}:`, e.message);
+          }
+        }
+      }
+
+      // 2. Kiểm tra Google Drive (driveId)
+      if (f.driveId) {
+        try {
+          const stream = await downloadFileFromDrive(f.driveId);
+          if (stream) {
+            const chunks = [];
+            for await (const chunk of stream) {
+              chunks.push(chunk);
+            }
+            return Buffer.concat(chunks);
+          }
+        } catch (e) {
+          console.error(`[DownloadAll] Lỗi tải từ Google Drive ID ${f.driveId}:`, e.message);
+        }
+      }
+
+      // 3. Kiểm tra liên kết HTTP / HTTPS ngoài
+      const url = f.url || (typeof f.localPath === 'string' && f.localPath.startsWith('http') ? f.localPath : null);
+      if (url) {
+        try {
+          const res = await fetch(url);
+          if (res.ok) {
+            const arrayBuf = await res.arrayBuffer();
+            return Buffer.from(arrayBuf);
+          }
+        } catch (e) {
+          console.error(`[DownloadAll] Lỗi tải từ URL ${url}:`, e.message);
+        }
+      }
+
+      return null;
+    }
+
+    // Xử lý các file đính kèm trong files_json
     for (let i = 0; i < files.length; i++) {
       const f = files[i];
-      if (!f.localPath) continue;
+      const buffer = await getFileBuffer(f);
 
-      const relPath = f.localPath.startsWith('/') ? f.localPath.substring(1) : f.localPath;
-      const fullPath = path.join(process.cwd(), 'public', relPath);
-
-      if (fs.existsSync(fullPath)) {
-        const buffer = fs.readFileSync(fullPath);
-        const originalExt = path.extname(f.originalName || relPath) || '';
+      if (buffer && buffer.length > 0) {
+        const originalExt = path.extname(f.originalName || f.localPath || '') || '';
         const title = (f.displayTitle || f.label || `File_${i + 1}`).replace(/[/\\?%*:|"<>]/g, '_');
-        const zipFileName = `${i + 1}_${title}${originalExt}`;
+        let zipFileName = `${i + 1}_${title}${originalExt}`;
+
+        if (addedNames.has(zipFileName)) {
+          zipFileName = `${i + 1}_${title}_${Date.now()}${originalExt}`;
+        }
+        addedNames.add(zipFileName);
 
         zip.file(zipFileName, buffer);
         fileCount++;
       }
     }
 
-    // Nếu có file Giấy chứng nhận đã cấp, thêm vào ZIP luôn nếu tồn tại
+    // Nếu có file Giấy chứng nhận đã cấp, thêm vào ZIP
     if (app.certificate_json) {
       try {
         const cert = typeof app.certificate_json === 'string' ? JSON.parse(app.certificate_json) : app.certificate_json;
-        if (cert && cert.url) {
-          const certRelPath = cert.url.startsWith('/') ? cert.url.substring(1) : cert.url;
-          const certFullPath = path.join(process.cwd(), 'public', certRelPath);
-          if (fs.existsSync(certFullPath)) {
-            const certBuffer = fs.readFileSync(certFullPath);
-            const certExt = path.extname(cert.url) || '.pdf';
-            zip.file(`Giay_Chung_Nhan_${app.certificate_id || 'CDC'}${certExt}`, certBuffer);
+        if (cert) {
+          const certBuffer = await getFileBuffer({ localPath: cert.url, driveId: cert.driveId, url: cert.url });
+          if (certBuffer && certBuffer.length > 0) {
+            const certExt = path.extname(cert.url || '') || '.pdf';
+            const certFileName = `Giay_Chung_Nhan_${app.certificate_id || 'CDC'}${certExt}`;
+            zip.file(certFileName, certBuffer);
             fileCount++;
           }
         }
       } catch (e) {
-        console.error('Error adding cert to zip:', e);
+        console.error('[DownloadAll] Lỗi thêm giấy chứng nhận vào zip:', e);
       }
     }
 
-    // Nếu các tập tin vật lý trên đĩa không tồn tại (vd: do server làm mới container), tự tạo file thông tin danh sách tệp đính kèm
+    // Nếu chưa tìm thấy file nào nhưng có gdrive_folder_id, tải trực tiếp các tệp trong folder Drive của hồ sơ
+    if (fileCount === 0 && app.gdrive_folder_id) {
+      try {
+        const driveFiles = await listFilesInFolder(app.gdrive_folder_id);
+        for (let i = 0; i < driveFiles.length; i++) {
+          const df = driveFiles[i];
+          const stream = await downloadFileFromDrive(df.id);
+          if (stream) {
+            const chunks = [];
+            for await (const chunk of stream) {
+              chunks.push(chunk);
+            }
+            const buffer = Buffer.concat(chunks);
+            if (buffer.length > 0) {
+              zip.file(`${i + 1}_${df.name}`, buffer);
+              fileCount++;
+            }
+          }
+        }
+      } catch (e) {
+        console.error('[DownloadAll] Lỗi lấy danh sách tệp từ Drive folder:', e.message);
+      }
+    }
+
+    // Nếu vẫn không có tập tin vật lý nào trên đĩa hoặc Drive, tạo file thông báo ghi chú metadata
     if (fileCount === 0) {
       let textNotice = `TRUNG TÂM KIỂM SOÁT BỆNH TẬT TP. ĐÀ NẴNG (CDC ĐÀ NẴNG)\n`;
       textNotice += `=========================================================\n`;
@@ -88,7 +165,7 @@ export async function GET(request, { params }) {
         textNotice += `(Hồ sơ này người dân không đính kèm file nào khi đăng ký)\n`;
       }
 
-      textNotice += `\nGhi chú: Tệp tin đính kèm hiện tại tạm thời chưa khả dụng trên đĩa lưu trữ máy chủ.\n`;
+      textNotice += `\nGhi chú: Tệp tin đính kèm hiện tại chưa tìm thấy trên máy chủ local hoặc Google Drive liên kết.\n`;
 
       zip.file(`THONG_TIN_TEP_DINH_KEM_${app.id}.txt`, Buffer.from(textNotice, 'utf-8'));
     }
@@ -115,3 +192,4 @@ export async function GET(request, { params }) {
     return NextResponse.json({ error: 'Lỗi tải xuống tập tin ZIP: ' + err.message }, { status: 500 });
   }
 }
+

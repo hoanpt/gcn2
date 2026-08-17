@@ -265,7 +265,12 @@ export default function CaseDetailPage({ params }) {
                     <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: 'var(--gray-50)', borderRadius: 8, border: '1px solid var(--border)' }}>
                       <i className="fa-solid fa-file" style={{ color: 'var(--primary)', fontSize: 18 }} />
                       <span style={{ flex: 1, fontSize: 13 }}><strong>{f.label}:</strong> {f.originalName}</span>
-                      <a href={f.localPath} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline">
+                      <a 
+                        href={f.driveId ? `/api/drive/${f.driveId}?name=${encodeURIComponent(f.originalName || 'file')}` : (f.localPath || '#')} 
+                        target="_blank" 
+                        rel="noreferrer" 
+                        className="btn btn-sm btn-outline"
+                      >
                         <i className="fa-solid fa-eye" /> Xem / Tải
                       </a>
                     </div>

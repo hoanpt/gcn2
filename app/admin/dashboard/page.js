@@ -21,7 +21,8 @@ export default function DashboardPage() {
   const [apps, setApps] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [period, setPeriod] = useState('all');
+  const [period, setPeriod] = useState('week');
+  const [comparePeriod, setComparePeriod] = useState('none');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [backing, setBacking] = useState(false);
@@ -35,13 +36,13 @@ export default function DashboardPage() {
 
   const fetchStats = useCallback(async () => {
     try {
-      const res = await fetch(`/api/stats?period=${period}`);
+      const res = await fetch(`/api/stats?period=${period}&comparePeriod=${comparePeriod}`);
       if (res.status === 401) { router.push('/admin'); return; }
       const data = await res.json();
       setStats(data);
       drawCharts(data);
     } catch(e) { console.error(e); }
-  }, [period]);
+  }, [period, comparePeriod]);
 
   const fetchApps = useCallback(async () => {
     setLoading(true);
@@ -93,13 +94,60 @@ export default function DashboardPage() {
       if (barChart.current) barChart.current.destroy();
 
       if (pieRef.current) {
+        const byStatus = data.byStatus || { pending: 0, received: 0, processing: 0, completed: 0 };
+        const labels = ['Chờ tiếp nhận', 'Đã tiếp nhận', 'Đang xử lý', 'Đã hoàn tất'];
+        const colors = ['#f59e0b', '#3b82f6', '#8b5cf6', '#10b981'];
+
+        const datasets = [
+          {
+            label: data.periodLabel || 'Kỳ này',
+            data: [byStatus.pending, byStatus.received, byStatus.processing, byStatus.completed],
+            backgroundColor: colors,
+            borderWidth: 2,
+            borderColor: '#ffffff',
+            hoverOffset: 6
+          }
+        ];
+
+        if (data.comparePeriod === 'previous' && data.compareStats) {
+          const compByStatus = data.compareStats.byStatus || { pending: 0, received: 0, processing: 0, completed: 0 };
+          const compColors = ['#fcd34d', '#93c5fd', '#c4b5fd', '#6ee7b7'];
+          datasets.push({
+            label: data.compareLabel || 'Kỳ trước',
+            data: [compByStatus.pending, compByStatus.received, compByStatus.processing, compByStatus.completed],
+            backgroundColor: compColors,
+            borderWidth: 2,
+            borderColor: '#ffffff',
+            hoverOffset: 6
+          });
+        }
+
         pieChart.current = new window.Chart(pieRef.current, {
           type: 'doughnut',
-          data: {
-            labels: ['Đã giải quyết', 'Chưa giải quyết'],
-            datasets: [{ data: [data.resolved, data.unresolved], backgroundColor: ['#10b981', '#f59e0b'], borderWidth: 0, hoverOffset: 6 }],
-          },
-          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { family: 'Inter', size: 11 } } } }, cutout: '72%' },
+          data: { labels, datasets },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: 'bottom',
+                labels: { boxWidth: 12, font: { family: 'Inter', size: 11, weight: '500' }, padding: 10 }
+              },
+              tooltip: {
+                callbacks: {
+                  label: function(context) {
+                    const label = context.label || '';
+                    const value = context.parsed || 0;
+                    const totalVal = context.dataset.data.reduce((a, b) => a + b, 0);
+                    const pct = totalVal > 0 ? Math.round((value / totalVal) * 100) : 0;
+                    const dsLabel = context.dataset.label ? `[${context.dataset.label}] ` : '';
+                    return ` ${dsLabel}${label}: ${value} hồ sơ (${pct}%)`;
+                  }
+                }
+              }
+            },
+            cutout: datasets.length > 1 ? '55%' : '68%'
+          }
         });
       }
 
@@ -109,9 +157,17 @@ export default function DashboardPage() {
           type: 'bar',
           data: {
             labels: days.map(d => { const dt = new Date(d.day); return `${dt.getDate()}/${dt.getMonth()+1}`; }),
-            datasets: [{ label: 'Hồ sơ mới', data: days.map(d => d.count), backgroundColor: '#3b82f6', borderRadius: 4, barPercentage: 0.65 }],
+            datasets: [{ label: 'Hồ sơ', data: days.map(d => d.count), backgroundColor: '#3b82f6', borderRadius: 5, barPercentage: 0.6 }],
           },
-          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1, font: { family: 'Inter', size: 10 } }, grid: { color: '#f1f5f9' } }, x: { ticks: { font: { family: 'Inter', size: 10 } }, grid: { display: false } } } },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              y: { beginAtZero: true, ticks: { stepSize: 1, font: { family: 'Inter', size: 10 } }, grid: { color: '#f1f5f9' } },
+              x: { ticks: { font: { family: 'Inter', size: 10 } }, grid: { display: false } }
+            }
+          },
         });
       }
     }, 100);
@@ -258,49 +314,172 @@ export default function DashboardPage() {
       </nav>
 
       <div className={styles.adminContent}>
-        {/* Stats */}
-        <div className={styles.statsRow}>
-          {[
-            { label: 'Tổng hồ sơ', value: stats?.total ?? '…', cls: 'blue', icon: 'fa-folder-open' },
-            { label: 'Đã giải quyết', value: stats?.resolved ?? '…', cls: 'green', icon: 'fa-circle-check' },
-            { label: 'Chưa giải quyết', value: stats?.unresolved ?? '…', cls: 'amber', icon: 'fa-clock' },
-            { label: 'Đang xử lý', value: stats?.byStatus?.processing ?? '…', cls: 'purple', icon: 'fa-gears' },
-          ].map(s => (
-            <div key={s.label} className={`${styles.statCard} ${styles[s.cls]}`}>
-              <div className={styles.label}><i className={`fa-solid ${s.icon}`} style={{ marginRight: 6 }} />{s.label}</div>
-              <div className={styles.value}>{s.value}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* Charts */}
-        <div className={styles.chartsPanel}>
-          <div className={styles.chartPanelHeader}>
-            <h3><i className="fa-solid fa-chart-pie" style={{ color: 'var(--primary)' }} /> Báo cáo thống kê</h3>
-            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-              <select style={{ padding: '6px 12px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, fontFamily: 'inherit', outline: 'none' }} value={period} onChange={e => setPeriod(e.target.value)}>
-                <option value="day">Hôm nay</option>
-                <option value="week">Tuần này</option>
-                <option value="month">Tháng này</option>
-                <option value="year">Năm nay</option>
-                <option value="all">Tất cả</option>
-              </select>
-              <button className="btn btn-outline btn-sm" onClick={doBackup} disabled={backing}>
-                {backing ? <span className="spinner spinner-dark" style={{ width: 14, height: 14 }} /> : <i className="fa-solid fa-database" />}
-                Backup DB
-              </button>
+        {/* Header & Controls Thống Kê */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
+          <div>
+            <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0, color: 'var(--gray-900)', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <i className="fa-solid fa-chart-line" style={{ color: 'var(--primary)' }} />
+              Báo cáo Thống kê Hồ sơ ({stats?.periodLabel || 'Tuần này'})
+            </h2>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+              Tỷ lệ hồ sơ chờ tiếp nhận, đang xử lý & đã hoàn tất
             </div>
           </div>
+
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', background: '#fff', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 10px', gap: 6 }}>
+              <i className="fa-solid fa-calendar-days" style={{ color: 'var(--primary)', fontSize: 13 }} />
+              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--gray-600)' }}>Thời gian:</span>
+              <select 
+                style={{ border: 'none', background: 'transparent', fontSize: 13, fontWeight: 600, color: 'var(--gray-900)', outline: 'none', cursor: 'pointer' }}
+                value={period} 
+                onChange={e => setPeriod(e.target.value)}
+              >
+                <option value="week">Tuần này (Mặc định)</option>
+                <option value="day">Hôm nay</option>
+                <option value="month">Tháng này</option>
+                <option value="year">Năm nay</option>
+                <option value="all">Tất cả thời gian</option>
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', background: '#fff', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 10px', gap: 6 }}>
+              <i className="fa-solid fa-code-compare" style={{ color: '#8b5cf6', fontSize: 13 }} />
+              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--gray-600)' }}>So sánh:</span>
+              <select 
+                style={{ border: 'none', background: 'transparent', fontSize: 13, fontWeight: 600, color: 'var(--gray-900)', outline: 'none', cursor: 'pointer' }}
+                value={comparePeriod} 
+                onChange={e => setComparePeriod(e.target.value)}
+                disabled={period === 'all'}
+              >
+                <option value="none">Không so sánh</option>
+                <option value="previous">So với kỳ trước ({stats?.compareLabel || 'Tuần trước'})</option>
+              </select>
+            </div>
+
+            <button className="btn btn-outline btn-sm" onClick={doBackup} disabled={backing}>
+              {backing ? <span className="spinner spinner-dark" style={{ width: 14, height: 14 }} /> : <i className="fa-solid fa-database" />}
+              Backup DB
+            </button>
+          </div>
+        </div>
+
+        {/* Stats Row */}
+        <div className={styles.statsRow}>
+          {/* Card 1: Tổng hồ sơ */}
+          <div className={`${styles.statCard} ${styles.blue}`}>
+            <div className={styles.label}>
+              <i className="fa-solid fa-folder-open" style={{ marginRight: 6 }} />
+              Tổng hồ sơ ({stats?.periodLabel || 'Tuần này'})
+            </div>
+            <div className={styles.value}>{stats?.total ?? '…'}</div>
+            {comparePeriod === 'previous' && stats?.delta && (
+              <div style={{ fontSize: 12, marginTop: 4, fontWeight: 600, color: stats.delta.totalDiff >= 0 ? '#10b981' : '#ef4444', display: 'flex', alignItems: 'center', gap: 4 }}>
+                <i className={`fa-solid ${stats.delta.totalDiff >= 0 ? 'fa-arrow-trend-up' : 'fa-arrow-trend-down'}`} />
+                {stats.delta.totalDiff >= 0 ? `+${stats.delta.totalDiff}` : stats.delta.totalDiff} ({stats.delta.totalPercent >= 0 ? '+' : ''}{stats.delta.totalPercent}%) so với {stats?.compareLabel}
+              </div>
+            )}
+          </div>
+
+          {/* Card 2: Chờ tiếp nhận */}
+          <div className={`${styles.statCard} ${styles.amber}`}>
+            <div className={styles.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span><i className="fa-solid fa-clock" style={{ marginRight: 6 }} />Chờ tiếp nhận</span>
+              <span style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#b45309', padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 700 }}>
+                {stats?.pendingRatio ?? 0}%
+              </span>
+            </div>
+            <div className={styles.value}>{stats?.byStatus?.pending ?? '…'}</div>
+            {comparePeriod === 'previous' && stats?.delta ? (
+              <div style={{ fontSize: 12, marginTop: 4, fontWeight: 600, color: stats.delta.pendingDiff <= 0 ? '#10b981' : '#d97706', display: 'flex', alignItems: 'center', gap: 4 }}>
+                <i className={`fa-solid ${stats.delta.pendingDiff <= 0 ? 'fa-arrow-trend-down' : 'fa-arrow-trend-up'}`} />
+                {stats.delta.pendingDiff >= 0 ? `+${stats.delta.pendingDiff}` : stats.delta.pendingDiff} ({stats.delta.pendingRatioDiff >= 0 ? '+' : ''}{stats.delta.pendingRatioDiff}% tỷ lệ) so với {stats?.compareLabel}
+              </div>
+            ) : (
+              <div style={{ fontSize: 12, marginTop: 4, color: 'var(--text-muted)' }}>Chiếm {stats?.pendingRatio ?? 0}% tổng hồ sơ</div>
+            )}
+          </div>
+
+          {/* Card 3: Đang xử lý */}
+          <div className={`${styles.statCard} ${styles.purple}`}>
+            <div className={styles.label}>
+              <i className="fa-solid fa-gears" style={{ marginRight: 6 }} />Đã tiếp nhận & Đang xử lý
+            </div>
+            <div className={styles.value}>{(stats?.byStatus?.received || 0) + (stats?.byStatus?.processing || 0)}</div>
+            <div style={{ fontSize: 12, marginTop: 4, color: 'var(--text-muted)' }}>
+              Đã tiếp nhận: {stats?.byStatus?.received || 0} | Đang xử lý: {stats?.byStatus?.processing || 0}
+            </div>
+          </div>
+
+          {/* Card 4: Đã hoàn tất / Đã xử lý */}
+          <div className={`${styles.statCard} ${styles.green}`}>
+            <div className={styles.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span><i className="fa-solid fa-circle-check" style={{ marginRight: 6 }} />Đã xử lý xong</span>
+              <span style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#047857', padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 700 }}>
+                {stats?.completedRatio ?? 0}%
+              </span>
+            </div>
+            <div className={styles.value}>{stats?.resolved ?? '…'}</div>
+            {comparePeriod === 'previous' && stats?.delta ? (
+              <div style={{ fontSize: 12, marginTop: 4, fontWeight: 600, color: stats.delta.completedRatioDiff >= 0 ? '#10b981' : '#ef4444', display: 'flex', alignItems: 'center', gap: 4 }}>
+                <i className={`fa-solid ${stats.delta.completedRatioDiff >= 0 ? 'fa-arrow-trend-up' : 'fa-arrow-trend-down'}`} />
+                {stats.delta.completedDiff >= 0 ? `+${stats.delta.completedDiff}` : stats.delta.completedDiff} ({stats.delta.completedRatioDiff >= 0 ? '+' : ''}{stats.delta.completedRatioDiff}% tỷ lệ) so với {stats?.compareLabel}
+              </div>
+            ) : (
+              <div style={{ fontSize: 12, marginTop: 4, color: 'var(--text-muted)' }}>Tỷ lệ hoàn tất: {stats?.completedRatio ?? 0}%</div>
+            )}
+          </div>
+        </div>
+
+        {/* Charts Panel */}
+        <div className={styles.chartsPanel}>
           <div className={styles.chartsGrid}>
             <div className={styles.chartBox}>
-              <div className={styles.chartTitle}>Tỷ lệ giải quyết</div>
-              <div style={{ position: 'relative', flex: 1, minHeight: 0 }}>
+              <div className={styles.chartTitle} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>
+                  <i className="fa-solid fa-chart-pie" style={{ color: '#f59e0b', marginRight: 6 }} />
+                  Biểu đồ tỷ lệ trạng thái ({stats?.periodLabel || 'Tuần này'})
+                </span>
+                {comparePeriod === 'previous' && (
+                  <span style={{ fontSize: 11, background: '#f3e8ff', color: '#6b21a8', padding: '2px 8px', borderRadius: 6, fontWeight: 600 }}>
+                    Vòng ngoài: {stats?.periodLabel} | Vòng trong: {stats?.compareLabel}
+                  </span>
+                )}
+              </div>
+              <div style={{ position: 'relative', flex: 1, minHeight: 220 }}>
                 <canvas ref={pieRef} />
               </div>
+
+              {/* Chi tiết tỷ lệ % */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8, marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--border)', fontSize: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#f59e0b', display: 'inline-block' }} />
+                  <span><strong>Chờ tiếp nhận:</strong> {stats?.byStatus?.pending || 0} ({stats?.pendingRatio || 0}%)</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#3b82f6', display: 'inline-block' }} />
+                  <span><strong>Đã tiếp nhận:</strong> {stats?.byStatus?.received || 0} ({stats?.receivedRatio || 0}%)</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#8b5cf6', display: 'inline-block' }} />
+                  <span><strong>Đang xử lý:</strong> {stats?.byStatus?.processing || 0} ({stats?.processingRatio || 0}%)</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#10b981', display: 'inline-block' }} />
+                  <span><strong>Đã hoàn tất:</strong> {stats?.byStatus?.completed || 0} ({stats?.completedRatio || 0}%)</span>
+                </div>
+              </div>
             </div>
+
             <div className={styles.chartBox}>
-              <div className={styles.chartTitle}>Hồ sơ 7 ngày gần nhất</div>
-              <div style={{ position: 'relative', flex: 1, minHeight: 0 }}>
+              <div className={styles.chartTitle} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>
+                  <i className="fa-solid fa-chart-column" style={{ color: '#3b82f6', marginRight: 6 }} />
+                  Hồ sơ tiếp nhận 7 ngày gần nhất
+                </span>
+                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Theo từng ngày</span>
+              </div>
+              <div style={{ position: 'relative', flex: 1, minHeight: 220 }}>
                 <canvas ref={barRef} />
               </div>
             </div>
