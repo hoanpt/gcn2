@@ -51,4 +51,8 @@ data/backups/*
 public/uploads/*
 !public/uploads/.gitkeep
 
+# temporary scratch files
+scratch/
+
+
 

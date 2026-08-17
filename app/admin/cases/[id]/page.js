@@ -190,7 +190,19 @@ export default function CaseDetailPage({ params }) {
 
           {/* File đính kèm */}
           <div className="card">
-            <div className="card-header"><h3><i className="fa-solid fa-paperclip" style={{ color: 'var(--primary)', marginRight: 8 }} />File đính kèm</h3></div>
+            <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3><i className="fa-solid fa-paperclip" style={{ color: 'var(--primary)', marginRight: 8 }} />File đính kèm</h3>
+              {(app.files_json && app.files_json.length > 0) && (
+                <a
+                  href={`/api/applications/${app.id}/download-all`}
+                  download
+                  className="btn btn-sm btn-primary"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 600 }}
+                >
+                  <i className="fa-solid fa-file-zipper" /> Tải tất cả file (.ZIP)
+                </a>
+              )}
+            </div>
             <div className="card-body">
               {(app.files_json && app.files_json.length > 0) ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>

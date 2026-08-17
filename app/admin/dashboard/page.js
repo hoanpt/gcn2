@@ -279,10 +279,21 @@ export default function DashboardPage() {
                     </td>
                     <td style={{ fontSize: 13 }}>{METHOD_MAP[app.receive_method] || app.receive_method}</td>
                     <td><span className={`badge ${st.cls}`}>{st.text}</span></td>
-                    <td style={{ textAlign: 'right' }}>
-                      <Link href={`/admin/cases/${app.id}`} className="btn btn-primary btn-sm">
-                        <i className="fa-solid fa-eye" /> Xử lý
-                      </Link>
+                    <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <div style={{ display: 'inline-flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
+                        <a
+                          href={`/api/applications/${app.id}/download-all`}
+                          download
+                          className="btn btn-outline btn-sm"
+                          title="Tải nén toàn bộ file (.ZIP)"
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                        >
+                          <i className="fa-solid fa-file-zipper" style={{ color: 'var(--primary)' }} /> Tải file
+                        </a>
+                        <Link href={`/admin/cases/${app.id}`} className="btn btn-primary btn-sm">
+                          <i className="fa-solid fa-eye" /> Xử lý
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                 );
