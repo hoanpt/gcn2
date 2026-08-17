@@ -25,6 +25,9 @@ export default function DashboardPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [backing, setBacking] = useState(false);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [deleting, setDeleting] = useState(false);
+
   const pieRef = useRef(null);
   const barRef = useRef(null);
   const pieChart = useRef(null);
@@ -56,7 +59,6 @@ export default function DashboardPage() {
   }, [statusFilter, search]);
 
   useEffect(() => {
-    // Lấy thông tin user từ cookie (decode JWT thủ công)
     fetchUser();
     fetchStats();
     fetchApps();
@@ -69,7 +71,6 @@ export default function DashboardPage() {
     try {
       const res = await fetch('/api/accounts');
       if (res.status === 401) { router.push('/admin'); }
-      // User info from cookie payload
       const cookie = document.cookie;
       const token = cookie.match(/cdc_admin_token=([^;]+)/)?.[1];
       if (token) {
@@ -81,8 +82,6 @@ export default function DashboardPage() {
 
   function drawCharts(data) {
     if (typeof window === 'undefined') return;
-    
-    // Đảm bảo Chart.js đã được tải
     if (!window.Chart) {
       setTimeout(() => drawCharts(data), 200);
       return;
@@ -141,6 +140,72 @@ export default function DashboardPage() {
     const q = search.toLowerCase();
     return !q || a.name.toLowerCase().includes(q) || a.cccd.includes(q) || a.id.toLowerCase().includes(q);
   });
+
+  function toggleSelect(id) {
+    setSelectedIds(prev =>
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  }
+
+  function toggleSelectAll() {
+    if (selectedIds.length === filtered.length && filtered.length > 0) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(filtered.map(a => a.id));
+    }
+  }
+
+  async function handleBatchDelete() {
+    if (selectedIds.length === 0) return;
+    if (!confirm(`⚠️ XÁC NHẬN XÓA HÀNG LOẠT:\n\nBạn có chắc chắn muốn XÓA VĨNH VIỄN ${selectedIds.length} hồ sơ đã chọn cùng tất cả file đính kèm?\nThao tác này KHÔNG THỂ HOÀN TÁC!`)) {
+      return;
+    }
+
+    setDeleting(true);
+    try {
+      const res = await fetch('/api/applications/batch-delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: selectedIds }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert('⚠️ Lỗi xóa hồ sơ: ' + (data.error || 'Có lỗi xảy ra'));
+        return;
+      }
+      alert(`✅ ${data.message || 'Đã xóa các hồ sơ được chọn'}`);
+      setSelectedIds([]);
+      fetchApps();
+      fetchStats();
+    } catch (e) {
+      alert('Lỗi kết nối: ' + e.message);
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  async function handleDeleteSingle(id, name) {
+    if (!confirm(`⚠️ XÁC NHẬN XÓA:\n\nBạn có chắc muốn xóa hồ sơ ${id} (${name}) không?`)) {
+      return;
+    }
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/applications/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) {
+        alert('⚠️ Lỗi xóa: ' + (data.error || 'Không thể xóa'));
+        return;
+      }
+      alert('✅ Đã xóa hồ sơ thành công!');
+      setSelectedIds(prev => prev.filter(i => i !== id));
+      fetchApps();
+      fetchStats();
+    } catch (e) {
+      alert('Lỗi: ' + e.message);
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   return (
     <div className={styles.adminLayout}>
@@ -212,11 +277,10 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
-          {/* Load Chart.js with Next.js Script */}
           <Script src="https://cdn.jsdelivr.net/npm/chart.js/auto/auto.min.js" strategy="afterInteractive" onLoad={() => { if (stats) drawCharts(stats); else fetchStats(); }} />
         </div>
 
-        {/* Table */}
+        {/* Table Toolbar */}
         <div className={styles.toolbar}>
           <div className={styles.toolbarTitle}>
             <i className="fa-solid fa-folder-open" style={{ color: 'var(--primary)' }} />
@@ -240,10 +304,57 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        {/* Thanh tác vụ hàng loạt khi đã chọn tickbox */}
+        {selectedIds.length > 0 && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '12px 18px',
+            background: '#eff6ff',
+            border: '1px solid #93c5fd',
+            borderRadius: 8,
+            marginBottom: 16,
+            boxShadow: '0 2px 8px rgba(59, 130, 246, 0.12)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, fontWeight: 600, color: '#1e40af' }}>
+              <i className="fa-solid fa-square-check" style={{ fontSize: 18, color: '#2563eb' }} />
+              <span>Đã chọn <strong>{selectedIds.length}</strong> / {filtered.length} hồ sơ</span>
+            </div>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+              <button
+                className="btn btn-sm"
+                onClick={() => setSelectedIds([])}
+                style={{ background: 'white', border: '1px solid var(--border)', color: 'var(--gray-700)' }}
+              >
+                Bỏ chọn
+              </button>
+              <button
+                className="btn btn-sm btn-danger"
+                onClick={handleBatchDelete}
+                disabled={deleting}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 600 }}
+              >
+                {deleting ? <span className="spinner" /> : <i className="fa-solid fa-trash-can" />}
+                Xóa {selectedIds.length} hồ sơ đã chọn
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className={styles.tableWrap}>
           <table className="data-table">
             <thead>
               <tr>
+                <th style={{ width: 42, textAlign: 'center' }}>
+                  <input
+                    type="checkbox"
+                    checked={filtered.length > 0 && selectedIds.length === filtered.length}
+                    onChange={toggleSelectAll}
+                    style={{ width: 16, height: 16, cursor: 'pointer' }}
+                    title="Chọn tất cả hồ sơ hiển thị"
+                  />
+                </th>
                 <th>Mã Hồ Sơ</th>
                 <th>Họ và Tên / CCCD</th>
                 <th>Ngày Nộp</th>
@@ -254,11 +365,11 @@ export default function DashboardPage() {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={6} style={{ textAlign: 'center', padding: 40 }}>
+                <tr><td colSpan={7} style={{ textAlign: 'center', padding: 40 }}>
                   <span className="spinner spinner-dark" style={{ width: 28, height: 28 }} />
                 </td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={6}>
+                <tr><td colSpan={7}>
                   <div className="empty-state">
                     <div className="empty-icon"><i className="fa-solid fa-inbox" /></div>
                     <h3>Không có hồ sơ nào</h3>
@@ -267,8 +378,17 @@ export default function DashboardPage() {
                 </td></tr>
               ) : filtered.map(app => {
                 const st = STATUS_MAP[app.status] || STATUS_MAP.pending;
+                const isSelected = selectedIds.includes(app.id);
                 return (
-                  <tr key={app.id}>
+                  <tr key={app.id} style={{ background: isSelected ? '#f0f9ff' : 'transparent' }}>
+                    <td style={{ textAlign: 'center' }}>
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleSelect(app.id)}
+                        style={{ width: 16, height: 16, cursor: 'pointer' }}
+                      />
+                    </td>
                     <td style={{ fontWeight: 700, fontSize: 13, fontFamily: 'monospace' }}>{app.id}</td>
                     <td>
                       <div style={{ fontWeight: 600 }}>{app.name}</div>
@@ -293,6 +413,14 @@ export default function DashboardPage() {
                         <Link href={`/admin/cases/${app.id}`} className="btn btn-primary btn-sm">
                           <i className="fa-solid fa-eye" /> Xử lý
                         </Link>
+                        <button
+                          className="btn btn-outline btn-sm"
+                          onClick={() => handleDeleteSingle(app.id, app.name)}
+                          title="Xóa hồ sơ này"
+                          style={{ color: '#ef4444', borderColor: '#fca5a5' }}
+                        >
+                          <i className="fa-solid fa-trash" />
+                        </button>
                       </div>
                     </td>
                   </tr>

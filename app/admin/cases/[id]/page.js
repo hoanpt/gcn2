@@ -102,6 +102,21 @@ export default function CaseDetailPage({ params }) {
     }
   }
 
+  async function deleteApp() {
+    if (!confirm(`⚠️ CẢNH BÁO XÓA HỒ SƠ:\n\nBạn có chắc chắn muốn XÓA VĨNH VIỄN hồ sơ ${app.id} (${app.name})?\nThao tác này sẽ dọn dẹp toàn bộ file đính kèm trên hệ thống.`)) {
+      return;
+    }
+    setUpdating(true);
+    try {
+      const res = await fetch(`/api/applications/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) { alert('Lỗi xóa: ' + (data.error || 'Không thể xóa')); return; }
+      alert('✅ Đã xóa hồ sơ thành công!');
+      router.push('/admin/dashboard');
+    } catch (e) { alert(e.message); }
+    finally { setUpdating(false); }
+  }
+
   if (loading) return (
     <div className={styles.adminLayout}>
       <div style={{ display: 'flex', justifyContent: 'center', padding: 80 }}>
@@ -132,9 +147,20 @@ export default function CaseDetailPage({ params }) {
             Chi tiết Hồ sơ — <span style={{ color: '#60a5fa' }}>{app.id}</span>
           </span>
         </div>
-        <span className={`badge ${statusInfo.cls}`} style={{ fontSize: 13, padding: '6px 14px' }}>
-          {statusInfo.label}
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <button
+            className="btn btn-sm btn-ghost"
+            onClick={deleteApp}
+            disabled={updating}
+            style={{ color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.4)', background: 'rgba(239, 68, 68, 0.1)' }}
+            title="Xóa hồ sơ này"
+          >
+            <i className="fa-solid fa-trash-can" /> Xóa hồ sơ
+          </button>
+          <span className={`badge ${statusInfo.cls}`} style={{ fontSize: 13, padding: '6px 14px' }}>
+            {statusInfo.label}
+          </span>
+        </div>
       </nav>
 
       <div className={styles.adminContent} style={{ maxWidth: 900 }}>
