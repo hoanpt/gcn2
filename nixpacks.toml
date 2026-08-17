@@ -1,8 +1,5 @@
 # Nixpacks configuration for Coolify / Railway deployment
 
-[phases.setup]
-nixPkgs = ["python3", "gcc", "gnumake"]
-
 [phases.install]
 cmds = ["npm install"]
 
