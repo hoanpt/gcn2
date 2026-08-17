@@ -1,5 +1,10 @@
 # Nixpacks configuration for Coolify / Railway deployment
 
+[variables]
+HOSTNAME = "0.0.0.0"
+PORT = "3000"
+NODE_ENV = "production"
+
 [phases.install]
 cmds = ["npm install"]
 
@@ -11,4 +16,4 @@ cmds = [
 ]
 
 [start]
-cmd = "node .next/standalone/server.js"
+cmd = "HOSTNAME=0.0.0.0 PORT=3000 node .next/standalone/server.js"
