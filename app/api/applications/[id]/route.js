@@ -16,7 +16,10 @@ export async function GET(request, { params }) {
     const token = getTokenFromReq(request);
     if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { id } = await params;
+    const resolvedParams = await params;
+    const id = resolvedParams?.id;
+    if (!id) return NextResponse.json({ error: 'Mã hồ sơ không hợp lệ' }, { status: 400 });
+
     const db = await getDb();
     const app = await db.get('SELECT * FROM applications WHERE id = ?', id);
     if (!app) return NextResponse.json({ error: 'Không tìm thấy hồ sơ' }, { status: 404 });
@@ -24,15 +27,33 @@ export async function GET(request, { params }) {
     // Lấy audit log
     const logs = await db.all('SELECT * FROM status_logs WHERE application_id = ? ORDER BY changed_at DESC', id);
 
+    let parsedFiles = [];
+    if (app.files_json) {
+      try {
+        parsedFiles = typeof app.files_json === 'string' ? JSON.parse(app.files_json) : app.files_json;
+      } catch (e) {
+        console.error('Error parsing files_json:', e);
+      }
+    }
+
+    let parsedCert = null;
+    if (app.certificate_json) {
+      try {
+        parsedCert = typeof app.certificate_json === 'string' ? JSON.parse(app.certificate_json) : app.certificate_json;
+      } catch (e) {
+        console.error('Error parsing certificate_json:', e);
+      }
+    }
+
     return NextResponse.json({
       ...app,
-      files_json: app.files_json ? JSON.parse(app.files_json) : [],
-      certificate_json: app.certificate_json ? JSON.parse(app.certificate_json) : null,
-      statusLogs: logs
+      files_json: parsedFiles,
+      certificate_json: parsedCert,
+      statusLogs: logs || []
     });
   } catch (err) {
     console.error('[Applications/ID GET]', err);
-    return NextResponse.json({ error: 'Lỗi hệ thống' }, { status: 500 });
+    return NextResponse.json({ error: 'Lỗi hệ thống: ' + err.message }, { status: 500 });
   }
 }
 

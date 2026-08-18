@@ -1,6 +1,6 @@
 'use client';
-import { useState, useEffect, use } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import styles from '../../admin.module.css';
 
@@ -13,9 +13,13 @@ const STATUS_OPTS = [
 
 const METHOD_MAP = { email: 'Qua Email', postal: 'Bưu điện', direct: 'Nhận trực tiếp' };
 
-export default function CaseDetailPage({ params }) {
-  const { id } = use(params);
+export default function CaseDetailPage({ params: pageParams }) {
   const router = useRouter();
+  const routeParams = useParams();
+  
+  // Safely extract id parameter
+  const id = routeParams?.id || (pageParams && typeof pageParams.id === 'string' ? pageParams.id : null);
+
   const [app, setApp] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -29,19 +33,26 @@ export default function CaseDetailPage({ params }) {
   const [generating, setGenerating] = useState(false);
 
   useEffect(() => {
-    loadApp();
+    if (id) {
+      loadApp();
+    }
   }, [id]);
 
   async function loadApp() {
+    if (!id) return;
     setLoading(true);
     try {
       const res = await fetch(`/api/applications/${id}`);
       if (res.status === 401) { router.push('/admin'); return; }
-      if (!res.ok) { setError('Không tìm thấy hồ sơ'); setLoading(false); return; }
+      if (!res.ok) { 
+        const errData = await res.json().catch(() => ({}));
+        setError(errData.error || 'Không tìm thấy hồ sơ'); 
+        setLoading(false); 
+        return; 
+      }
       const data = await res.json();
       setApp(data);
       setNewStatus(data.status);
-      // No auto-fill needed anymore since we upload file
     } catch (e) {
       setError(e.message);
     } finally {
