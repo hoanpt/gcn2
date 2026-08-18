@@ -31,6 +31,7 @@ export default function CaseDetailPage({ params: pageParams }) {
   const [certFile, setCertFile] = useState(null);
   const [certNotes, setCertNotes] = useState('');
   const [generating, setGenerating] = useState(false);
+  const [downloadingZip, setDownloadingZip] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -114,7 +115,7 @@ export default function CaseDetailPage({ params: pageParams }) {
   }
 
   async function deleteApp() {
-    if (!confirm(`⚠️ CẢNH BÁO XÓA HỒ SƠ:\n\nBạn có chắc chắn muốn XÓA VĨNH VIỄN hồ sơ ${app.id} (${app.name})?\nThao tác này sẽ dọn dẹp toàn bộ file đính kèm trên hệ thống.`)) {
+    if (!confirm(`⚠️ CẢNH BÁO XÓA HỒ SƠ:\n\nBạn có chắc chắn muốn XÓA VĨNH VIỄN hồ sơ ${app?.id} (${app?.name})?\nThao tác này sẽ dọn dẹp toàn bộ file đính kèm trên hệ thống.`)) {
       return;
     }
     setUpdating(true);
@@ -128,28 +129,8 @@ export default function CaseDetailPage({ params: pageParams }) {
     finally { setUpdating(false); }
   }
 
-  if (loading) return (
-    <div className={styles.adminLayout}>
-      <div style={{ display: 'flex', justifyContent: 'center', padding: 80 }}>
-        <span className="spinner spinner-dark" style={{ width: 40, height: 40 }} />
-      </div>
-    </div>
-  );
-
-  if (error) return (
-    <div className={styles.adminLayout}>
-      <div style={{ textAlign: 'center', padding: 80 }}>
-        <p style={{ color: 'var(--danger)', fontSize: 18 }}>{error}</p>
-        <Link href="/admin/dashboard" className="btn btn-primary" style={{ marginTop: 20 }}>← Quay lại</Link>
-      </div>
-    </div>
-  );
-
-  const statusInfo = STATUS_OPTS.find(s => s.value === app.status) || STATUS_OPTS[0];
-
-  const [downloadingZip, setDownloadingZip] = useState(false);
-
   async function handleDownloadZip() {
+    if (!app) return;
     setDownloadingZip(true);
     try {
       const res = await fetch(`/api/applications/${app.id}/download-all`);
@@ -174,6 +155,25 @@ export default function CaseDetailPage({ params: pageParams }) {
       setDownloadingZip(false);
     }
   }
+
+  if (loading) return (
+    <div className={styles.adminLayout}>
+      <div style={{ display: 'flex', justifyContent: 'center', padding: 80 }}>
+        <span className="spinner spinner-dark" style={{ width: 40, height: 40 }} />
+      </div>
+    </div>
+  );
+
+  if (error || !app) return (
+    <div className={styles.adminLayout}>
+      <div style={{ textAlign: 'center', padding: 80 }}>
+        <p style={{ color: 'var(--danger)', fontSize: 18 }}>{error || 'Không tìm thấy hồ sơ'}</p>
+        <Link href="/admin/dashboard" className="btn btn-primary" style={{ marginTop: 20 }}>← Quay lại</Link>
+      </div>
+    </div>
+  );
+
+  const statusInfo = STATUS_OPTS.find(s => s.value === app.status) || STATUS_OPTS[0];
 
   return (
     <div className={styles.adminLayout}>
