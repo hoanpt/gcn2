@@ -211,9 +211,15 @@ export default function DashboardPage() {
     finally { setBacking(false); }
   }
 
-  const filtered = apps.filter(a => {
-    const q = search.toLowerCase();
-    return !q || a.name.toLowerCase().includes(q) || a.cccd.includes(q) || a.id.toLowerCase().includes(q);
+  const filtered = (apps || []).filter(a => {
+    if (!a) return false;
+    const q = search.toLowerCase().trim();
+    if (!q) return true;
+    const name = String(a.name || '').toLowerCase();
+    const cccd = String(a.cccd || '').toLowerCase();
+    const idStr = String(a.id || '').toLowerCase();
+    const phone = String(a.phone || '').toLowerCase();
+    return name.includes(q) || cccd.includes(q) || idStr.includes(q) || phone.includes(q);
   });
 
   function toggleSelect(id) {
@@ -614,15 +620,15 @@ export default function DashboardPage() {
                         style={{ width: 16, height: 16, cursor: 'pointer' }}
                       />
                     </td>
-                    <td style={{ fontWeight: 700, fontSize: 13, fontFamily: 'monospace' }}>{app.id}</td>
+                    <td style={{ fontWeight: 700, fontSize: 13, fontFamily: 'monospace' }}>{app.id || '—'}</td>
                     <td>
-                      <div style={{ fontWeight: 600 }}>{app.name}</div>
-                      <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{app.cccd}</div>
+                      <div style={{ fontWeight: 600 }}>{app.name || '—'}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{app.cccd || '—'}</div>
                     </td>
                     <td style={{ fontSize: 13, whiteSpace: 'nowrap' }}>
-                      {new Date(app.submitted_at).toLocaleString('vi-VN')}
+                      {app.submitted_at ? new Date(app.submitted_at).toLocaleString('vi-VN') : '—'}
                     </td>
-                    <td style={{ fontSize: 13 }}>{METHOD_MAP[app.receive_method] || app.receive_method}</td>
+                    <td style={{ fontSize: 13 }}>{METHOD_MAP[app.receive_method] || app.receive_method || '—'}</td>
                     <td><span className={`badge ${st.cls}`}>{st.text}</span></td>
                     <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                       <div style={{ display: 'inline-flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
