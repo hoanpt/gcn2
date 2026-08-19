@@ -13,6 +13,15 @@ const STATUS_MAP = {
 };
 
 function RenderDoughnutSVG({ stats }) {
+  if (!stats || typeof stats !== 'object' || !stats.byStatus) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 160, color: 'var(--text-muted)', fontSize: 13 }}>
+        <i className="fa-solid fa-chart-pie" style={{ fontSize: 32, marginBottom: 8, opacity: 0.3 }} />
+        Chưa có dữ liệu thống kê
+      </div>
+    );
+  }
+
   const pending = stats?.byStatus?.pending || 0;
   const received = stats?.byStatus?.received || 0;
   const processing = stats?.byStatus?.processing || 0;
@@ -79,8 +88,8 @@ function RenderDoughnutSVG({ stats }) {
 }
 
 function RenderBarSVG({ stats }) {
-  const days = stats?.last7Days || [];
-  const maxCount = Math.max(...days.map(d => d.count), 1);
+  const days = (stats && Array.isArray(stats.last7Days)) ? stats.last7Days : [];
+  const maxCount = Math.max(...days.map(d => d?.count || 0), 1);
 
   if (days.length === 0) {
     return (
@@ -94,13 +103,14 @@ function RenderBarSVG({ stats }) {
   return (
     <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', height: 160, gap: 10, padding: '10px 10px 0 10px' }}>
       {days.map((d, idx) => {
-        const dt = new Date(d.day);
+        const count = d?.count || 0;
+        const dt = d?.day ? new Date(d.day) : new Date();
         const dayLabel = `${dt.getDate()}/${dt.getMonth() + 1}`;
-        const heightPct = Math.round((d.count / maxCount) * 100);
+        const heightPct = Math.round((count / maxCount) * 100);
         return (
           <div key={idx} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, height: '100%', justifyContent: 'flex-end' }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: d.count > 0 ? 'var(--primary)' : 'var(--text-muted)' }}>{d.count}</span>
-            <div style={{ width: '100%', maxWidth: 36, height: `${Math.max(heightPct, 6)}%`, background: d.count > 0 ? 'linear-gradient(180deg, #3b82f6 0%, #1d4ed8 100%)' : '#e2e8f0', borderRadius: '6px 6px 0 0', transition: 'height 0.4s ease' }} />
+            <span style={{ fontSize: 11, fontWeight: 700, color: count > 0 ? 'var(--primary)' : 'var(--text-muted)' }}>{count}</span>
+            <div style={{ width: '100%', maxWidth: 36, height: `${Math.max(heightPct, 6)}%`, background: count > 0 ? 'linear-gradient(180deg, #3b82f6 0%, #1d4ed8 100%)' : '#e2e8f0', borderRadius: '6px 6px 0 0', transition: 'height 0.4s ease' }} />
             <span style={{ fontSize: 11, color: 'var(--gray-600)', fontWeight: 500 }}>{dayLabel}</span>
           </div>
         );
@@ -124,17 +134,15 @@ export default function DashboardPage() {
   const [selectedIds, setSelectedIds] = useState([]);
   const [deleting, setDeleting] = useState(false);
 
-  const pieRef = useRef(null);
-  const barRef = useRef(null);
-  const pieChart = useRef(null);
-  const barChart = useRef(null);
-
   const fetchStats = useCallback(async () => {
     try {
       const res = await fetch(`/api/stats?period=${period}&comparePeriod=${comparePeriod}`);
       if (res.status === 401) { router.push('/admin'); return; }
+      if (!res.ok) return;
       const data = await res.json();
-      setStats(data);
+      if (data && !data.error) {
+        setStats(data);
+      }
     } catch(e) { console.error(e); }
   }, [period, comparePeriod]);
 
@@ -146,10 +154,11 @@ export default function DashboardPage() {
       if (search) params.set('q', search);
       const res = await fetch(`/api/applications?${params}`);
       if (res.status === 401) { router.push('/admin'); return; }
+      if (!res.ok) { setApps([]); setTotal(0); return; }
       const data = await res.json();
-      setApps(data.data || []);
-      setTotal(data.total || 0);
-    } catch(e) { console.error(e); }
+      setApps(Array.isArray(data.data) ? data.data : []);
+      setTotal(typeof data.total === 'number' ? data.total : 0);
+    } catch(e) { console.error(e); setApps([]); }
     finally { setLoading(false); }
   }, [statusFilter, search]);
 
