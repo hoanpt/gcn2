@@ -137,7 +137,7 @@ export default function DashboardPage() {
   const fetchStats = useCallback(async () => {
     try {
       const res = await fetch(`/api/stats?period=${period}&comparePeriod=${comparePeriod}`);
-      if (res.status === 401) { router.push('/admin'); return; }
+      if (res.status === 401) { window.location.href = '/admin'; return; }
       if (!res.ok) return;
       const data = await res.json();
       if (data && !data.error) {
@@ -153,7 +153,7 @@ export default function DashboardPage() {
       if (statusFilter !== 'all') params.set('status', statusFilter);
       if (search) params.set('q', search);
       const res = await fetch(`/api/applications?${params}`);
-      if (res.status === 401) { router.push('/admin'); return; }
+      if (res.status === 401) { window.location.href = '/admin'; return; }
       if (!res.ok) { setApps([]); setTotal(0); return; }
       const data = await res.json();
       setApps(Array.isArray(data.data) ? data.data : []);
@@ -164,38 +164,27 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetchUser();
-    fetchStats();
-    fetchApps();
   }, []);
 
-  useEffect(() => { fetchStats(); }, [fetchStats]);
-  useEffect(() => { fetchApps(); }, [fetchApps]);
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
+
+  useEffect(() => {
+    fetchApps();
+  }, [fetchApps]);
 
   async function fetchUser() {
     try {
       const res = await fetch('/api/accounts');
-      if (res.status === 401) { router.push('/admin'); return; }
-      const cookie = document.cookie || '';
-      const match = cookie.match(/cdc_admin_token=([^;]+)/);
-      if (match && match[1]) {
-        const token = match[1];
-        try {
-          const parts = token.split('.');
-          if (parts.length >= 2) {
-            const base64Url = parts[1];
-            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-            const jsonPayload = decodeURIComponent(
-              atob(base64)
-                .split('')
-                .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-                .join('')
-            );
-            setUser(JSON.parse(jsonPayload));
+      if (res.status === 401) { window.location.href = '/admin'; return; }
+      if (res.ok) {
+        const data = await res.json();
+        if (data && Array.isArray(data.accounts)) {
+          const current = data.accounts.find(a => a.role === 'admin') || data.accounts[0];
+          if (current) {
+            setUser({ username: current.username, fullName: current.full_name || current.username });
           }
-        } catch (jwtErr) {
-          try {
-            setUser(JSON.parse(atob(token.split('.')[1])));
-          } catch(e) {}
         }
       }
     } catch(e) {}
@@ -203,7 +192,7 @@ export default function DashboardPage() {
 
   async function logout() {
     await fetch('/api/auth/logout', { method: 'POST' });
-    router.push('/admin');
+    window.location.href = '/admin';
   }
 
   async function doBackup() {
