@@ -121,10 +121,23 @@ export async function GET(request, { params }) {
       }
     }
 
-    // Nếu chưa tìm thấy file nào nhưng có gdrive_folder_id, tải trực tiếp các tệp trong folder Drive của hồ sơ
-    if (fileCount === 0 && app.gdrive_folder_id) {
+    // Thử lấy tệp từ Google Drive folder
+    let targetFolderId = app.gdrive_folder_id;
+    if (!targetFolderId && fileCount === 0) {
       try {
-        const driveFiles = await listFilesInFolder(app.gdrive_folder_id);
+        const { findApplicationFolderOnDrive } = require('@/lib/drive');
+        targetFolderId = await findApplicationFolderOnDrive(app.id);
+        if (targetFolderId) {
+          await db.run('UPDATE applications SET gdrive_folder_id = ? WHERE id = ?', targetFolderId, app.id);
+        }
+      } catch (e) {
+        console.error('[DownloadAll] Lỗi auto-find Drive folder:', e.message);
+      }
+    }
+
+    if (fileCount === 0 && targetFolderId) {
+      try {
+        const driveFiles = await listFilesInFolder(targetFolderId);
         for (let i = 0; i < driveFiles.length; i++) {
           const df = driveFiles[i];
           const stream = await downloadFileFromDrive(df.id);
@@ -135,13 +148,48 @@ export async function GET(request, { params }) {
             }
             const buffer = Buffer.concat(chunks);
             if (buffer.length > 0) {
-              zip.file(`${i + 1}_${df.name}`, buffer);
+              let zipFileName = `${i + 1}_${df.name}`;
+              if (addedNames.has(zipFileName)) {
+                zipFileName = `${i + 1}_${df.name}_${Date.now()}`;
+              }
+              addedNames.add(zipFileName);
+              zip.file(zipFileName, buffer);
               fileCount++;
             }
           }
         }
       } catch (e) {
         console.error('[DownloadAll] Lỗi lấy danh sách tệp từ Drive folder:', e.message);
+      }
+    }
+
+    // Nếu vẫn chưa tìm thấy file nào, tìm kiếm các file trên Drive có chứa tên mã hồ sơ
+    if (fileCount === 0) {
+      try {
+        const { searchFilesInDriveByAppId } = require('@/lib/drive');
+        const matchedFiles = await searchFilesInDriveByAppId(app.id);
+        for (let i = 0; i < matchedFiles.length; i++) {
+          const df = matchedFiles[i];
+          const stream = await downloadFileFromDrive(df.id);
+          if (stream) {
+            const chunks = [];
+            for await (const chunk of stream) {
+              chunks.push(chunk);
+            }
+            const buffer = Buffer.concat(chunks);
+            if (buffer.length > 0) {
+              let zipFileName = `${i + 1}_${df.name}`;
+              if (addedNames.has(zipFileName)) {
+                zipFileName = `${i + 1}_${df.name}_${Date.now()}`;
+              }
+              addedNames.add(zipFileName);
+              zip.file(zipFileName, buffer);
+              fileCount++;
+            }
+          }
+        }
+      } catch (e) {
+        console.error('[DownloadAll] Lỗi tìm kiếm file trên Drive theo mã HS:', e.message);
       }
     }
 
