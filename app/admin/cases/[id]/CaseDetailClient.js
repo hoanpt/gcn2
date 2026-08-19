@@ -273,7 +273,7 @@ export default function CaseDetailClient({ id }) {
                       <i className="fa-solid fa-file" style={{ color: 'var(--primary)', fontSize: 18 }} />
                       <span style={{ flex: 1, fontSize: 13 }}><strong>{f.label}:</strong> {f.originalName}</span>
                       <a 
-                        href={f.driveId ? `/api/drive/${f.driveId}?name=${encodeURIComponent(f.originalName || 'file')}` : (f.localPath || '#')} 
+                        href={`/api/applications/${app.id}/files/${idx}`} 
                         target="_blank" 
                         rel="noreferrer" 
                         className="btn btn-sm btn-outline"

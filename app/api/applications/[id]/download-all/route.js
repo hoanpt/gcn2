@@ -66,7 +66,16 @@ export async function GET(request, { params }) {
         }
       }
 
-      // 3. Kiểm tra liên kết HTTP / HTTPS ngoài
+      // 3. Kiểm tra Base64 trong CSDL
+      if (f.base64) {
+        try {
+          return Buffer.from(f.base64, 'base64');
+        } catch (e) {
+          console.error(`[DownloadAll] Lỗi giải mã base64:`, e.message);
+        }
+      }
+
+      // 4. Kiểm tra liên kết HTTP / HTTPS ngoài
       const url = f.url || (typeof f.localPath === 'string' && f.localPath.startsWith('http') ? f.localPath : null);
       if (url) {
         try {

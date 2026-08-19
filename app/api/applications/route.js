@@ -156,6 +156,7 @@ export async function POST(request) {
 
       for (const [key, file, displayTitle] of filesToUpload) {
         const buffer = Buffer.from(await file.arrayBuffer());
+        const base64Str = buffer.toString('base64');
         const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
         const filename = `${id}_${Date.now()}_${key}_${safeName}`;
         const destPath = path.join(uploadDir, filename);
@@ -181,15 +182,17 @@ export async function POST(request) {
           size: file.size,
           localPath: `/uploads/${filename}`,
           driveId: driveId,
-          driveViewLink: driveViewLink
+          driveViewLink: driveViewLink,
+          base64: base64Str
         });
       }
     } catch (gErr) {
       console.error('[Applications POST] Lỗi upload Drive:', gErr);
-      // Tiếp tục lưu local nếu upload Drive gặp sự cố
+      // Tiếp tục lưu local & DB nếu upload Drive gặp sự cố
       if (filesInfo.length === 0) {
         for (const [key, file, displayTitle] of filesToUpload) {
           const buffer = Buffer.from(await file.arrayBuffer());
+          const base64Str = buffer.toString('base64');
           const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
           const filename = `${id}_${Date.now()}_${key}_${safeName}`;
           const destPath = path.join(uploadDir, filename);
@@ -202,7 +205,8 @@ export async function POST(request) {
             size: file.size,
             localPath: `/uploads/${filename}`,
             driveId: null,
-            driveViewLink: null
+            driveViewLink: null,
+            base64: base64Str
           });
         }
       }
