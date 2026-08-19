@@ -12,7 +12,102 @@ const STATUS_MAP = {
   completed:  { text: 'Đã hoàn tất',   cls: 'badge-completed' },
 };
 
-const METHOD_MAP = { email: '📧 Email', postal: '🚛 Bưu điện', direct: '🏢 Trực tiếp' };
+function RenderDoughnutSVG({ stats }) {
+  const pending = stats?.byStatus?.pending || 0;
+  const received = stats?.byStatus?.received || 0;
+  const processing = stats?.byStatus?.processing || 0;
+  const completed = stats?.byStatus?.completed || 0;
+  const total = pending + received + processing + completed;
+
+  if (total === 0) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 160, color: 'var(--text-muted)', fontSize: 13 }}>
+        <i className="fa-solid fa-chart-pie" style={{ fontSize: 32, marginBottom: 8, opacity: 0.3 }} />
+        Chưa có dữ liệu hồ sơ cho kỳ này
+      </div>
+    );
+  }
+
+  const items = [
+    { label: 'Chờ tiếp nhận', count: pending, color: '#f59e0b', pct: stats?.pendingRatio || 0 },
+    { label: 'Đã tiếp nhận', count: received, color: '#3b82f6', pct: stats?.receivedRatio || 0 },
+    { label: 'Đang xử lý', count: processing, color: '#8b5cf6', pct: stats?.processingRatio || 0 },
+    { label: 'Đã hoàn tất', count: completed, color: '#10b981', pct: stats?.completedRatio || 0 },
+  ];
+
+  const size = 150;
+  const strokeWidth = 22;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+
+  let accumulatedPct = 0;
+  const segments = items.map((item) => {
+    const strokeDasharray = `${(item.pct / 100) * circumference} ${circumference}`;
+    const strokeDashoffset = -((accumulatedPct / 100) * circumference);
+    accumulatedPct += item.pct;
+    return { ...item, strokeDasharray, strokeDashoffset };
+  });
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 20, padding: '10px 0' }}>
+      <div style={{ position: 'relative', width: size, height: size }}>
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: 'rotate(-90deg)', overflow: 'visible' }}>
+          <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="#f1f5f9" strokeWidth={strokeWidth} />
+          {segments.map((seg, idx) => (
+            <circle
+              key={idx}
+              cx={size / 2}
+              cy={size / 2}
+              r={radius}
+              fill="none"
+              stroke={seg.color}
+              strokeWidth={strokeWidth}
+              strokeDasharray={seg.strokeDasharray}
+              strokeDashoffset={seg.strokeDashoffset}
+              strokeLinecap="butt"
+              style={{ transition: 'all 0.5s ease' }}
+            />
+          ))}
+        </svg>
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+          <span style={{ fontSize: 22, fontWeight: 800, color: 'var(--gray-900)' }}>{total}</span>
+          <span style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Hồ sơ</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RenderBarSVG({ stats }) {
+  const days = stats?.last7Days || [];
+  const maxCount = Math.max(...days.map(d => d.count), 1);
+
+  if (days.length === 0) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 160, color: 'var(--text-muted)', fontSize: 13 }}>
+        <i className="fa-solid fa-chart-column" style={{ fontSize: 32, marginBottom: 8, opacity: 0.3 }} />
+        Chưa có dữ liệu 7 ngày qua
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', height: 160, gap: 10, padding: '10px 10px 0 10px' }}>
+      {days.map((d, idx) => {
+        const dt = new Date(d.day);
+        const dayLabel = `${dt.getDate()}/${dt.getMonth() + 1}`;
+        const heightPct = Math.round((d.count / maxCount) * 100);
+        return (
+          <div key={idx} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, height: '100%', justifyContent: 'flex-end' }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: d.count > 0 ? 'var(--primary)' : 'var(--text-muted)' }}>{d.count}</span>
+            <div style={{ width: '100%', maxWidth: 36, height: `${Math.max(heightPct, 6)}%`, background: d.count > 0 ? 'linear-gradient(180deg, #3b82f6 0%, #1d4ed8 100%)' : '#e2e8f0', borderRadius: '6px 6px 0 0', transition: 'height 0.4s ease' }} />
+            <span style={{ fontSize: 11, color: 'var(--gray-600)', fontWeight: 500 }}>{dayLabel}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -442,13 +537,13 @@ export default function DashboardPage() {
                 </span>
                 {comparePeriod === 'previous' && (
                   <span style={{ fontSize: 11, background: '#f3e8ff', color: '#6b21a8', padding: '2px 8px', borderRadius: 6, fontWeight: 600 }}>
-                    Vòng ngoài: {stats?.periodLabel} | Vòng trong: {stats?.compareLabel}
+                    Kỳ trước: {stats?.compareLabel}
                   </span>
                 )}
               </div>
-              <div style={{ position: 'relative', flex: 1, minHeight: 220 }}>
-                <canvas ref={pieRef} />
-              </div>
+
+              {/* Biểu đồ Doughnut SVG */}
+              <RenderDoughnutSVG stats={stats} />
 
               {/* Chi tiết tỷ lệ % */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8, marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--border)', fontSize: 12 }}>
@@ -479,12 +574,11 @@ export default function DashboardPage() {
                 </span>
                 <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Theo từng ngày</span>
               </div>
-              <div style={{ position: 'relative', flex: 1, minHeight: 220 }}>
-                <canvas ref={barRef} />
-              </div>
+
+              {/* Biểu đồ Cột SVG */}
+              <RenderBarSVG stats={stats} />
             </div>
           </div>
-          <Script src="https://cdn.jsdelivr.net/npm/chart.js/auto/auto.min.js" strategy="afterInteractive" onLoad={() => { if (stats) drawCharts(stats); else fetchStats(); }} />
         </div>
 
         {/* Table Toolbar */}

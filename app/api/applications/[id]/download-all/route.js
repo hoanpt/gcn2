@@ -3,7 +3,8 @@ import fs from 'fs';
 import path from 'path';
 import JSZip from 'jszip';
 import getDb from '@/lib/db';
-import { downloadFileFromDrive, listFilesInFolder } from '@/lib/drive';
+import { findFileOnDisk } from '@/lib/upload';
+import { downloadFileFromDrive, listFilesInFolder, findApplicationFolderOnDrive, searchFilesInDriveByAppId } from '@/lib/drive';
 
 function getTokenFromReq(request) {
   const { verifyToken } = require('@/lib/auth');
@@ -20,7 +21,8 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { id } = await params;
+    const resolvedParams = await params;
+    const { id } = resolvedParams;
     const db = await getDb();
     const app = await db.get('SELECT * FROM applications WHERE id = ?', id);
     if (!app) {
@@ -28,24 +30,23 @@ export async function GET(request, { params }) {
     }
 
     const files = app.files_json ? (typeof app.files_json === 'string' ? JSON.parse(app.files_json) : app.files_json) : [];
-
     const zip = new JSZip();
     let fileCount = 0;
     const addedNames = new Set();
 
-    // Helper lấy Buffer nội dung file từ nhiều nguồn (Local disk, Google Drive, URL)
+    // Helper lấy Buffer nội dung file từ nhiều nguồn
     async function getFileBuffer(f) {
       if (!f) return null;
 
-      // 1. Kiểm tra ổ đĩa cục bộ (localPath)
+      // 1. Kiểm tra các đường dẫn ổ đĩa cục bộ (multi-candidate search)
       if (f.localPath) {
-        const relPath = f.localPath.startsWith('/') ? f.localPath.substring(1) : f.localPath;
-        const fullPath = path.join(process.cwd(), 'public', relPath);
-        if (fs.existsSync(fullPath)) {
+        const filename = path.basename(f.localPath);
+        const diskPath = findFileOnDisk(filename);
+        if (diskPath) {
           try {
-            return fs.readFileSync(fullPath);
+            return fs.readFileSync(diskPath);
           } catch (e) {
-            console.error(`[DownloadAll] Lỗi đọc file local ${fullPath}:`, e.message);
+            console.error(`[DownloadAll] Lỗi đọc file local ${diskPath}:`, e.message);
           }
         }
       }
@@ -56,10 +57,9 @@ export async function GET(request, { params }) {
           const stream = await downloadFileFromDrive(f.driveId);
           if (stream) {
             const chunks = [];
-            for await (const chunk of stream) {
-              chunks.push(chunk);
-            }
-            return Buffer.concat(chunks);
+            for await (const chunk of stream) chunks.push(chunk);
+            const buf = Buffer.concat(chunks);
+            if (buf.length > 0) return buf;
           }
         } catch (e) {
           console.error(`[DownloadAll] Lỗi tải từ Google Drive ID ${f.driveId}:`, e.message);
@@ -69,10 +69,9 @@ export async function GET(request, { params }) {
       // 3. Kiểm tra Base64 trong CSDL
       if (f.base64) {
         try {
-          return Buffer.from(f.base64, 'base64');
-        } catch (e) {
-          console.error(`[DownloadAll] Lỗi giải mã base64:`, e.message);
-        }
+          const buf = Buffer.from(f.base64, 'base64');
+          if (buf.length > 0) return buf;
+        } catch (e) {}
       }
 
       // 4. Kiểm tra liên kết HTTP / HTTPS ngoài
@@ -84,9 +83,7 @@ export async function GET(request, { params }) {
             const arrayBuf = await res.arrayBuffer();
             return Buffer.from(arrayBuf);
           }
-        } catch (e) {
-          console.error(`[DownloadAll] Lỗi tải từ URL ${url}:`, e.message);
-        }
+        } catch (e) {}
       }
 
       return null;
@@ -125,23 +122,18 @@ export async function GET(request, { params }) {
             fileCount++;
           }
         }
-      } catch (e) {
-        console.error('[DownloadAll] Lỗi thêm giấy chứng nhận vào zip:', e);
-      }
+      } catch (e) {}
     }
 
-    // Thử lấy tệp từ Google Drive folder
+    // Thử lấy tệp từ Google Drive folder nếu có
     let targetFolderId = app.gdrive_folder_id;
     if (!targetFolderId && fileCount === 0) {
       try {
-        const { findApplicationFolderOnDrive } = require('@/lib/drive');
         targetFolderId = await findApplicationFolderOnDrive(app.id);
         if (targetFolderId) {
           await db.run('UPDATE applications SET gdrive_folder_id = ? WHERE id = ?', targetFolderId, app.id);
         }
-      } catch (e) {
-        console.error('[DownloadAll] Lỗi auto-find Drive folder:', e.message);
-      }
+      } catch (e) {}
     }
 
     if (fileCount === 0 && targetFolderId) {
@@ -152,54 +144,41 @@ export async function GET(request, { params }) {
           const stream = await downloadFileFromDrive(df.id);
           if (stream) {
             const chunks = [];
-            for await (const chunk of stream) {
-              chunks.push(chunk);
-            }
+            for await (const chunk of stream) chunks.push(chunk);
             const buffer = Buffer.concat(chunks);
             if (buffer.length > 0) {
               let zipFileName = `${i + 1}_${df.name}`;
-              if (addedNames.has(zipFileName)) {
-                zipFileName = `${i + 1}_${df.name}_${Date.now()}`;
-              }
+              if (addedNames.has(zipFileName)) zipFileName = `${i + 1}_${df.name}_${Date.now()}`;
               addedNames.add(zipFileName);
               zip.file(zipFileName, buffer);
               fileCount++;
             }
           }
         }
-      } catch (e) {
-        console.error('[DownloadAll] Lỗi lấy danh sách tệp từ Drive folder:', e.message);
-      }
+      } catch (e) {}
     }
 
     // Nếu vẫn chưa tìm thấy file nào, tìm kiếm các file trên Drive có chứa tên mã hồ sơ
     if (fileCount === 0) {
       try {
-        const { searchFilesInDriveByAppId } = require('@/lib/drive');
         const matchedFiles = await searchFilesInDriveByAppId(app.id);
         for (let i = 0; i < matchedFiles.length; i++) {
           const df = matchedFiles[i];
           const stream = await downloadFileFromDrive(df.id);
           if (stream) {
             const chunks = [];
-            for await (const chunk of stream) {
-              chunks.push(chunk);
-            }
+            for await (const chunk of stream) chunks.push(chunk);
             const buffer = Buffer.concat(chunks);
             if (buffer.length > 0) {
               let zipFileName = `${i + 1}_${df.name}`;
-              if (addedNames.has(zipFileName)) {
-                zipFileName = `${i + 1}_${df.name}_${Date.now()}`;
-              }
+              if (addedNames.has(zipFileName)) zipFileName = `${i + 1}_${df.name}_${Date.now()}`;
               addedNames.add(zipFileName);
               zip.file(zipFileName, buffer);
               fileCount++;
             }
           }
         }
-      } catch (e) {
-        console.error('[DownloadAll] Lỗi tìm kiếm file trên Drive theo mã HS:', e.message);
-      }
+      } catch (e) {}
     }
 
     // Nếu vẫn không có tập tin vật lý nào trên đĩa hoặc Drive, tạo file thông báo ghi chú metadata
@@ -223,7 +202,6 @@ export async function GET(request, { params }) {
       }
 
       textNotice += `\nGhi chú: Tệp tin đính kèm hiện tại chưa tìm thấy trên máy chủ local hoặc Google Drive liên kết.\n`;
-
       zip.file(`THONG_TIN_TEP_DINH_KEM_${app.id}.txt`, Buffer.from(textNotice, 'utf-8'));
     }
 
@@ -249,4 +227,3 @@ export async function GET(request, { params }) {
     return NextResponse.json({ error: 'Lỗi tải xuống tập tin ZIP: ' + err.message }, { status: 500 });
   }
 }
-

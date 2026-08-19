@@ -144,14 +144,39 @@ export async function POST(request) {
       filesToUpload.push(['BienLaiThanhToan', filePayment, 'Biên lai thanh toán']);
     }
 
+    const { saveUploadedFile } = require('@/lib/upload');
+    let gdriveFolderId = null;
+    let driveEnabled = false;
+
+    try {
+      const { isDriveEnabled, createApplicationFolder, uploadFileToDrive } = require('@/lib/drive');
+      driveEnabled = await isDriveEnabled();
+      if (driveEnabled) {
+        gdriveFolderId = await createApplicationFolder(id);
+      }
+    } catch (e) {}
+
     for (const [key, file, displayTitle] of filesToUpload) {
       const buffer = Buffer.from(await file.arrayBuffer());
+      const base64Str = buffer.toString('base64');
       const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
       const filename = `${id}_${Date.now()}_${key}_${safeName}`;
-      const destPath = path.join(uploadDir, filename);
       
-      await fs.promises.writeFile(destPath, buffer);
-      
+      await saveUploadedFile(filename, buffer);
+
+      let driveId = null;
+      let driveViewLink = null;
+      if (driveEnabled && gdriveFolderId) {
+        try {
+          const { uploadFileToDrive } = require('@/lib/drive');
+          const driveRes = await uploadFileToDrive(buffer, filename, file.type || 'application/octet-stream', gdriveFolderId);
+          if (driveRes) {
+            driveId = driveRes.id;
+            driveViewLink = driveRes.webViewLink;
+          }
+        } catch (e) {}
+      }
+
       filesInfo.push({
         label: key,
         displayTitle: displayTitle || key,
@@ -159,8 +184,9 @@ export async function POST(request) {
         mimeType: file.type,
         size: file.size,
         localPath: `/uploads/${filename}`,
-        driveId: null,
-        driveViewLink: null
+        driveId: driveId,
+        driveViewLink: driveViewLink,
+        base64: base64Str
       });
     }
 

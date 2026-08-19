@@ -186,7 +186,8 @@
   display: grid;
   grid-template-columns: 1fr 2fr;
   gap: 20px;
-  height: 240px;
+  min-height: 280px;
+  height: auto;
 }
 
 .chartBox {
