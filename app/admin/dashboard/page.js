@@ -135,7 +135,6 @@ export default function DashboardPage() {
       if (res.status === 401) { router.push('/admin'); return; }
       const data = await res.json();
       setStats(data);
-      drawCharts(data);
     } catch(e) { console.error(e); }
   }, [period, comparePeriod]);
 
@@ -166,106 +165,31 @@ export default function DashboardPage() {
   async function fetchUser() {
     try {
       const res = await fetch('/api/accounts');
-      if (res.status === 401) { router.push('/admin'); }
-      const cookie = document.cookie;
-      const token = cookie.match(/cdc_admin_token=([^;]+)/)?.[1];
-      if (token) {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        setUser(payload);
+      if (res.status === 401) { router.push('/admin'); return; }
+      const cookie = document.cookie || '';
+      const match = cookie.match(/cdc_admin_token=([^;]+)/);
+      if (match && match[1]) {
+        const token = match[1];
+        try {
+          const parts = token.split('.');
+          if (parts.length >= 2) {
+            const base64Url = parts[1];
+            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            const jsonPayload = decodeURIComponent(
+              atob(base64)
+                .split('')
+                .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+                .join('')
+            );
+            setUser(JSON.parse(jsonPayload));
+          }
+        } catch (jwtErr) {
+          try {
+            setUser(JSON.parse(atob(token.split('.')[1])));
+          } catch(e) {}
+        }
       }
     } catch(e) {}
-  }
-
-  function drawCharts(data) {
-    if (typeof window === 'undefined') return;
-    if (!window.Chart) {
-      setTimeout(() => drawCharts(data), 200);
-      return;
-    }
-
-    setTimeout(() => {
-      if (!window.Chart) return;
-      if (pieChart.current) pieChart.current.destroy();
-      if (barChart.current) barChart.current.destroy();
-
-      if (pieRef.current) {
-        const byStatus = data.byStatus || { pending: 0, received: 0, processing: 0, completed: 0 };
-        const labels = ['Chờ tiếp nhận', 'Đã tiếp nhận', 'Đang xử lý', 'Đã hoàn tất'];
-        const colors = ['#f59e0b', '#3b82f6', '#8b5cf6', '#10b981'];
-
-        const datasets = [
-          {
-            label: data.periodLabel || 'Kỳ này',
-            data: [byStatus.pending, byStatus.received, byStatus.processing, byStatus.completed],
-            backgroundColor: colors,
-            borderWidth: 2,
-            borderColor: '#ffffff',
-            hoverOffset: 6
-          }
-        ];
-
-        if (data.comparePeriod === 'previous' && data.compareStats) {
-          const compByStatus = data.compareStats.byStatus || { pending: 0, received: 0, processing: 0, completed: 0 };
-          const compColors = ['#fcd34d', '#93c5fd', '#c4b5fd', '#6ee7b7'];
-          datasets.push({
-            label: data.compareLabel || 'Kỳ trước',
-            data: [compByStatus.pending, compByStatus.received, compByStatus.processing, compByStatus.completed],
-            backgroundColor: compColors,
-            borderWidth: 2,
-            borderColor: '#ffffff',
-            hoverOffset: 6
-          });
-        }
-
-        pieChart.current = new window.Chart(pieRef.current, {
-          type: 'doughnut',
-          data: { labels, datasets },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-              legend: {
-                position: 'bottom',
-                labels: { boxWidth: 12, font: { family: 'Inter', size: 11, weight: '500' }, padding: 10 }
-              },
-              tooltip: {
-                callbacks: {
-                  label: function(context) {
-                    const label = context.label || '';
-                    const value = context.parsed || 0;
-                    const totalVal = context.dataset.data.reduce((a, b) => a + b, 0);
-                    const pct = totalVal > 0 ? Math.round((value / totalVal) * 100) : 0;
-                    const dsLabel = context.dataset.label ? `[${context.dataset.label}] ` : '';
-                    return ` ${dsLabel}${label}: ${value} hồ sơ (${pct}%)`;
-                  }
-                }
-              }
-            },
-            cutout: datasets.length > 1 ? '55%' : '68%'
-          }
-        });
-      }
-
-      if (barRef.current) {
-        const days = data.last7Days || [];
-        barChart.current = new window.Chart(barRef.current, {
-          type: 'bar',
-          data: {
-            labels: days.map(d => { const dt = new Date(d.day); return `${dt.getDate()}/${dt.getMonth()+1}`; }),
-            datasets: [{ label: 'Hồ sơ', data: days.map(d => d.count), backgroundColor: '#3b82f6', borderRadius: 5, barPercentage: 0.6 }],
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: {
-              y: { beginAtZero: true, ticks: { stepSize: 1, font: { family: 'Inter', size: 10 } }, grid: { color: '#f1f5f9' } },
-              x: { ticks: { font: { family: 'Inter', size: 10 } }, grid: { display: false } }
-            }
-          },
-        });
-      }
-    }, 100);
   }
 
   async function logout() {

@@ -16,9 +16,26 @@ export default function AccountsPage() {
   const [currentUser, setCurrentUser] = useState(null);
 
   useEffect(() => {
-    const token = document.cookie.match(/cdc_admin_token=([^;]+)/)?.[1];
-    if (token) {
-      try { setCurrentUser(JSON.parse(atob(token.split('.')[1]))); } catch(e) {}
+    const cookie = document.cookie || '';
+    const match = cookie.match(/cdc_admin_token=([^;]+)/);
+    if (match && match[1]) {
+      const token = match[1];
+      try {
+        const parts = token.split('.');
+        if (parts.length >= 2) {
+          const base64Url = parts[1];
+          const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+          const jsonPayload = decodeURIComponent(
+            atob(base64)
+              .split('')
+              .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+              .join('')
+          );
+          setCurrentUser(JSON.parse(jsonPayload));
+        }
+      } catch (jwtErr) {
+        try { setCurrentUser(JSON.parse(atob(token.split('.')[1]))); } catch(e) {}
+      }
     }
     loadAccounts();
   }, []);
