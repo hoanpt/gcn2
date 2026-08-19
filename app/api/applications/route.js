@@ -144,72 +144,24 @@ export async function POST(request) {
       filesToUpload.push(['BienLaiThanhToan', filePayment, 'Biên lai thanh toán']);
     }
 
-    // Tùy chọn upload lên Google Drive nếu đã cấu hình
-    let gdriveFolderId = null;
-    let driveEnabled = false;
-    try {
-      const { isDriveEnabled, createApplicationFolder, uploadFileToDrive } = require('@/lib/drive');
-      driveEnabled = await isDriveEnabled();
-      if (driveEnabled) {
-        gdriveFolderId = await createApplicationFolder(id);
-      }
-
-      for (const [key, file, displayTitle] of filesToUpload) {
-        const buffer = Buffer.from(await file.arrayBuffer());
-        const base64Str = buffer.toString('base64');
-        const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-        const filename = `${id}_${Date.now()}_${key}_${safeName}`;
-        const destPath = path.join(uploadDir, filename);
-        
-        await fs.promises.writeFile(destPath, buffer);
-        
-        let driveId = null;
-        let driveViewLink = null;
-
-        if (driveEnabled && gdriveFolderId) {
-          const driveRes = await uploadFileToDrive(buffer, filename, file.type || 'application/octet-stream', gdriveFolderId);
-          if (driveRes) {
-            driveId = driveRes.id;
-            driveViewLink = driveRes.webViewLink;
-          }
-        }
-        
-        filesInfo.push({
-          label: key,
-          displayTitle: displayTitle || key,
-          originalName: file.name,
-          mimeType: file.type,
-          size: file.size,
-          localPath: `/uploads/${filename}`,
-          driveId: driveId,
-          driveViewLink: driveViewLink,
-          base64: base64Str
-        });
-      }
-    } catch (gErr) {
-      console.error('[Applications POST] Lỗi upload Drive:', gErr);
-      // Tiếp tục lưu local & DB nếu upload Drive gặp sự cố
-      if (filesInfo.length === 0) {
-        for (const [key, file, displayTitle] of filesToUpload) {
-          const buffer = Buffer.from(await file.arrayBuffer());
-          const base64Str = buffer.toString('base64');
-          const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-          const filename = `${id}_${Date.now()}_${key}_${safeName}`;
-          const destPath = path.join(uploadDir, filename);
-          await fs.promises.writeFile(destPath, buffer);
-          filesInfo.push({
-            label: key,
-            displayTitle: displayTitle || key,
-            originalName: file.name,
-            mimeType: file.type,
-            size: file.size,
-            localPath: `/uploads/${filename}`,
-            driveId: null,
-            driveViewLink: null,
-            base64: base64Str
-          });
-        }
-      }
+    for (const [key, file, displayTitle] of filesToUpload) {
+      const buffer = Buffer.from(await file.arrayBuffer());
+      const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+      const filename = `${id}_${Date.now()}_${key}_${safeName}`;
+      const destPath = path.join(uploadDir, filename);
+      
+      await fs.promises.writeFile(destPath, buffer);
+      
+      filesInfo.push({
+        label: key,
+        displayTitle: displayTitle || key,
+        originalName: file.name,
+        mimeType: file.type,
+        size: file.size,
+        localPath: `/uploads/${filename}`,
+        driveId: null,
+        driveViewLink: null
+      });
     }
 
     // Lưu vào DB
@@ -219,7 +171,7 @@ export async function POST(request) {
     `, 
       id, submittedAt, name, cccd, dob || null, gender || null, phone,
       email || null, address || null, receiveMethod, notes,
-      JSON.stringify(filesInfo), gdriveFolderId
+      JSON.stringify(filesInfo), null
     );
 
     // Log trạng thái ban đầu
@@ -236,7 +188,7 @@ export async function POST(request) {
       success: true,
       id,
       message: 'Hồ sơ đã được tiếp nhận thành công',
-      driveEnabled: driveEnabled,
+      driveEnabled: false,
       emailSent: emailResult.sent
     }, { status: 201 });
   } catch (err) {
