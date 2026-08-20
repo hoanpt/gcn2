@@ -1,4 +1,4 @@
-﻿import { NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { findFileOnDisk } from '@/lib/upload';
@@ -38,7 +38,7 @@ export async function GET(request, { params }) {
       status: 200,
       headers: {
         'Content-Type': mimeType,
-        'Content-Disposition': inline; filename=+"",
+        'Content-Disposition': `inline; filename="${safeFilename}"`,
         'Cache-Control': 'private, max-age=3600',
       },
     });
