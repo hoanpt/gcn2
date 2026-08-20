@@ -1,10 +1,8 @@
 'use client';
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import styles from './admin.module.css';
 
 export default function AdminLoginPage() {
-  const router = useRouter();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -22,7 +20,8 @@ export default function AdminLoginPage() {
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error || 'Đăng nhập thất bại'); return; }
-      router.push('/admin/dashboard');
+      // Dùng window.location thay router.push để đảm bảo cookie được đọc đúng
+      window.location.href = '/admin/dashboard';
     } catch (e) {
       setError('Lỗi kết nối: ' + e.message);
     } finally {

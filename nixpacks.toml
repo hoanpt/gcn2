@@ -4,6 +4,7 @@
 HOSTNAME = "0.0.0.0"
 PORT = "3000"
 NODE_ENV = "production"
+UPLOAD_DIR = "/app/data/uploads"
 
 [phases.install]
 cmds = ["npm install"]
@@ -12,7 +13,8 @@ cmds = ["npm install"]
 cmds = [
   "npm run build",
   "cp -R public .next/standalone/public",
-  "cp -R .next/static .next/standalone/.next/static"
+  "cp -R .next/static .next/standalone/.next/static",
+  "mkdir -p /app/data/uploads"
 ]
 
 [start]

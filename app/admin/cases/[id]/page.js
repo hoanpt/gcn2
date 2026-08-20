@@ -270,20 +270,31 @@ export default function CaseDetailPage() {
             <div className="card-body">
               {(app.files_json && app.files_json.length > 0) ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {app.files_json.map((f, idx) => (
-                    <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: 'var(--gray-50)', borderRadius: 8, border: '1px solid var(--border)' }}>
-                      <i className="fa-solid fa-file" style={{ color: 'var(--primary)', fontSize: 18 }} />
-                      <span style={{ flex: 1, fontSize: 13 }}><strong>{f.label}:</strong> {f.originalName}</span>
-                      <a 
-                        href={f.localPath || '#'} 
-                        target="_blank" 
-                        rel="noreferrer" 
-                        className="btn btn-sm btn-outline"
-                      >
-                        <i className="fa-solid fa-eye" /> Xem / Tải
-                      </a>
-                    </div>
-                  ))}
+                  {app.files_json.map((f, idx) => {
+                    // Lấy tên file từ localPath hoặc originalName
+                    const rawPath = f.localPath || '';
+                    const filename = rawPath.startsWith('/') ? rawPath.split('/').pop() : rawPath;
+                    // Dùng /api/files/[filename] để serve file qua server (hỗ trợ standalone deployment)
+                    const viewUrl = filename ? `/api/files/${encodeURIComponent(filename)}` : (f.driveViewLink || null);
+                    return (
+                      <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: 'var(--gray-50)', borderRadius: 8, border: '1px solid var(--border)' }}>
+                        <i className="fa-solid fa-file" style={{ color: 'var(--primary)', fontSize: 18 }} />
+                        <span style={{ flex: 1, fontSize: 13 }}><strong>{f.label || f.displayTitle}:</strong> {f.originalName}</span>
+                        {viewUrl ? (
+                          <a
+                            href={viewUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="btn btn-sm btn-outline"
+                          >
+                            <i className="fa-solid fa-eye" /> Xem / Tải
+                          </a>
+                        ) : (
+                          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Không tìm thấy file</span>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="alert alert-warning">
