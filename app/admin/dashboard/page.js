@@ -160,7 +160,7 @@ export default function DashboardPage() {
       if (!res.ok) { setApps([]); setTotal(0); return; }
       const data = await res.json();
       setApps(Array.isArray(data.data) ? data.data : []);
-      setTotal(typeof data.total === 'number' ? data.total : 0);
+      setTotal(parseInt(data.total ?? 0, 10) || 0);
     } catch (e) { console.error('[fetchApps]', e); setApps([]); }
     finally { setLoading(false); }
   }, [statusFilter, search]);

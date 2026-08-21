@@ -37,31 +37,32 @@ function getDateRange(period, offset = 0) {
 }
 
 async function getStatsForRange(db, start, end) {
-  let whereClause = '';
-  const params = [];
-  if (start && end) {
-    whereClause = 'WHERE submitted_at >= ? AND submitted_at <= ?';
-    params.push(start.toISOString(), end.toISOString());
-  }
+  const rows = await db.all(`SELECT status, receive_method, submitted_at FROM applications`);
 
-  const rows = await db.all(`SELECT status, receive_method FROM applications ${whereClause}`, ...params);
-  const total = rows.length;
+  const filtered = rows.filter(r => {
+    if (!start || !end) return true;
+    if (!r.submitted_at) return false;
+    const dt = r.submitted_at instanceof Date ? r.submitted_at : new Date(r.submitted_at);
+    if (isNaN(dt.getTime())) return false;
+    return dt >= start && dt <= end;
+  });
 
+  const total = filtered.length;
   const byStatus = { pending: 0, received: 0, processing: 0, completed: 0 };
   const byMethod = { email: 0, postal: 0, direct: 0 };
 
-  rows.forEach(r => {
-    if (byStatus.hasOwnProperty(r.status)) byStatus[r.status]++;
-    if (byMethod.hasOwnProperty(r.receive_method)) byMethod[r.receive_method]++;
+  filtered.forEach(r => {
+    if (r.status && byStatus.hasOwnProperty(r.status)) byStatus[r.status]++;
+    if (r.receive_method && byMethod.hasOwnProperty(r.receive_method)) byMethod[r.receive_method]++;
   });
 
   const resolved = byStatus.completed;
   const unresolved = total - resolved;
 
-  const pendingRatio = total > 0 ? parseFloat(((byStatus.pending / total) * 100).toFixed(1)) : 0;
-  const receivedRatio = total > 0 ? parseFloat(((byStatus.received / total) * 100).toFixed(1)) : 0;
+  const pendingRatio    = total > 0 ? parseFloat(((byStatus.pending    / total) * 100).toFixed(1)) : 0;
+  const receivedRatio   = total > 0 ? parseFloat(((byStatus.received   / total) * 100).toFixed(1)) : 0;
   const processingRatio = total > 0 ? parseFloat(((byStatus.processing / total) * 100).toFixed(1)) : 0;
-  const completedRatio = total > 0 ? parseFloat(((byStatus.completed / total) * 100).toFixed(1)) : 0;
+  const completedRatio  = total > 0 ? parseFloat(((byStatus.completed  / total) * 100).toFixed(1)) : 0;
 
   return {
     total,
@@ -77,11 +78,11 @@ async function getStatsForRange(db, start, end) {
 }
 
 const PERIOD_LABELS = {
-  week: { current: 'Tuần này', compare: 'Tuần trước' },
-  day: { current: 'Hôm nay', compare: 'Hôm qua' },
-  month: { current: 'Tháng này', compare: 'Tháng trước' },
-  year: { current: 'Năm nay', compare: 'Năm ngoái' },
-  all: { current: 'Tất cả thời gian', compare: 'Kỳ trước' },
+  week:  { current: 'Tuần này',          compare: 'Tuần trước' },
+  day:   { current: 'Hôm nay',            compare: 'Hôm qua' },
+  month: { current: 'Tháng này',          compare: 'Tháng trước' },
+  year:  { current: 'Năm nay',            compare: 'Năm ngoái' },
+  all:   { current: 'Tất cả thời gian',  compare: 'Kỳ trước' },
 };
 
 export async function GET(request) {
@@ -124,25 +125,29 @@ export async function GET(request) {
       };
     }
 
-    // Thống kê 7 ngày gần nhất (Cross-DB compatible)
-    const sevenDaysAgo = new Date(Date.now() - 6 * 86400000);
-    sevenDaysAgo.setHours(0, 0, 0, 0);
-    const rowsLast7 = await db.all(
-      `SELECT submitted_at FROM applications WHERE submitted_at >= ?`,
-      sevenDaysAgo.toISOString()
-    );
-
+    // Thống kê 7 ngày gần nhất (Cross-DB & Date safe)
+    const allRows = await db.all(`SELECT submitted_at FROM applications`);
     const dayMap = {};
     for (let i = 6; i >= 0; i--) {
       const d = new Date(Date.now() - i * 86400000);
-      const dayStr = d.toISOString().slice(0, 10);
+      const year  = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day   = String(d.getDate()).padStart(2, '0');
+      const dayStr = `${year}-${month}-${day}`;
       dayMap[dayStr] = 0;
     }
-    rowsLast7.forEach(r => {
+
+    allRows.forEach(r => {
       if (r.submitted_at) {
-        const dayStr = r.submitted_at.slice(0, 10);
-        if (dayMap.hasOwnProperty(dayStr)) {
-          dayMap[dayStr]++;
+        const dt = r.submitted_at instanceof Date ? r.submitted_at : new Date(r.submitted_at);
+        if (!isNaN(dt.getTime())) {
+          const year  = dt.getFullYear();
+          const month = String(dt.getMonth() + 1).padStart(2, '0');
+          const day   = String(dt.getDate()).padStart(2, '0');
+          const dayStr = `${year}-${month}-${day}`;
+          if (dayMap.hasOwnProperty(dayStr)) {
+            dayMap[dayStr]++;
+          }
         }
       }
     });
@@ -150,9 +155,12 @@ export async function GET(request) {
     const last7Days = Object.entries(dayMap).map(([day, count]) => ({ day, count }));
 
     // Backup logs
-    const recentBackups = await db.all(
-      `SELECT filename, size_bytes, created_at, created_by FROM backup_logs ORDER BY created_at DESC LIMIT 5`
-    );
+    let recentBackups = [];
+    try {
+      recentBackups = await db.all(
+        `SELECT filename, size_bytes, created_at, created_by FROM backup_logs ORDER BY created_at DESC LIMIT 5`
+      );
+    } catch (e) {}
 
     const labels = PERIOD_LABELS[period] || PERIOD_LABELS.week;
 
@@ -168,7 +176,7 @@ export async function GET(request) {
       recentBackups,
     });
   } catch (err) {
-    console.error('[Stats GET]', err);
+    console.error('[Stats GET Error]', err);
     return NextResponse.json({ error: 'Lỗi hệ thống: ' + err.message }, { status: 500 });
   }
 }

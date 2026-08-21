@@ -42,7 +42,7 @@ export async function GET(request) {
 
     const countSql = sql.replace('SELECT id, submitted_at, name, cccd, dob, gender, phone, email, address, receive_method, status, notes, certificate_id, package_date, gdrive_folder_id, created_at, updated_at', 'SELECT COUNT(*) as total');
     const countResult = await db.get(countSql, ...params);
-    const total = countResult?.total || 0;
+    const total = parseInt(countResult?.total ?? countResult?.count ?? 0, 10) || 0;
 
     sql += ` ORDER BY submitted_at DESC LIMIT ? OFFSET ?`;
     params.push(limit, offset);
